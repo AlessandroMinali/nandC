@@ -26,13 +26,13 @@ void test_basic_gate16(u16 (*f)(u16, u16), u16 x, u16 y, u16 out, char *gate) {
   printf("-------------------------------------------------------------------------\n");
   bool result = f(x, y) == out;
 
-  printbits16(x);
+  printbits(x, 16);
   printf(" ");
-  printbits16(y);
+  printbits(y, 16);
   printf(" | ");
-  printbits16(f(x, y));
+  printbits(f(x, y), 16);
   printf(" ");
-  printbits16(out);
+  printbits(out, 16);
   printf(" | ");
   printf("%d \n", result);
   printf("%s %s!\n\n"KNRM, (!result ? KRED"One or more tests failed for" : KGRN"All tests passed for"), gate);
@@ -47,13 +47,13 @@ void test_xor8way() {
   u8 x = rand();
   bool result = xor8way(x) == x;
   test |= !result;
-  printbits8(x);
+  printbits(x, 8);
   printf(" | %d %d | %d\n", xor8way(x), (bool)x, result);
 
   x = 0;
   result = xor8way(x) == x;
   test |= !result;
-  printbits8(x);
+  printbits(x, 8);
   printf(" | %d %d | %d\n", xor8way(x), x, result);
 
   printf("%s %s!\n\n"KNRM, (test ? KRED"One or more tests failed for" : KGRN"All tests passed for"), "XOR8WAY");

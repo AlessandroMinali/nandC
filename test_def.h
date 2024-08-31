@@ -25,11 +25,8 @@ typedef struct DMux8 {
   bool h;
 } DMux8;
 
-void printbits16(u16 v) {
-  for(char i = 15; i >= 0; i--) putchar('0' + ((v >> i) & 1));
-}
-void printbits8(u8 v) {
-  for(char i = 7; i >= 0; i--) putchar('0' + ((v >> i) & 1));
+void printbits(int v, u8 s) {
+  for(char i = s - 1; i >= 0; i--) putchar('0' + ((v >> i) & 1));
 }
 
 // primitive gate
