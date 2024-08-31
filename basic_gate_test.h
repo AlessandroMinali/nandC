@@ -45,7 +45,7 @@ void test_xor8way() {
   printf("------------------\n");
 
   u8 x = rand();
-  bool result = xor8way(x) == x;
+  bool result = xor8way(x) == (x?1:0);
   test |= !result;
   printbits(x, 8);
   printf(" | %d %d | %d\n", xor8way(x), (bool)x, result);

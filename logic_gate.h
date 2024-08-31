@@ -9,9 +9,9 @@
 
 int test() {
   printf("%s\n\n"KNRM, !not(0) && !not(1) ? KRED"One or more tests failed for NOT." : KGRN"All tests passed for NOT!");
-  test_basic_gate(and, nand_output, "AND");
-  test_basic_gate(or, nand_output, "OR");
-  test_basic_gate(xor, nand_output, "XOR");
+  test_basic_gate(and, and_output, "AND");
+  test_basic_gate(or, or_output, "OR");
+  test_basic_gate(xor, xor_output, "XOR");
   test_mux_gate();
   test_dmux_gate();
 
@@ -27,9 +27,9 @@ int test() {
   u16 g = rand();
   u16 h = rand();
 
-  printf("%s\n\n"KNRM, !not(x) && !not(x) ? KRED"One or more tests failed for NOT16." : KGRN"All tests passed for NOT16!");
+  printf("%s\n\n"KNRM, !(not16(x) == !x) ? KRED"One or more tests failed for NOT16." : KGRN"All tests passed for NOT16!");
   test_basic_gate16(and16, x, y, x&y, "AND16");
-  test_basic_gate16(or16, x, y, x&y, "OR16");
+  test_basic_gate16(or16, x, y, x|y, "OR16");
   test_basic_gate16(xor16, x, y, x^y, "XOR16");
   test_mux_gate16(x, y);
   test_xor8way();
