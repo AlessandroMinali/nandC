@@ -67,7 +67,7 @@ u16 mux8way16(u16 a, u16 b, u16 c, u16 d, u16 e, u16 f, u16 g, u16 h, u8 s) { re
 // u16 dmux4way(u16 a, u16 b, u16 c, u16 d, u8 s) { return 0 ;}
 
 // TODO implement DMUX8WAY
-// if sel=000 then {a=in, *=0} else if sel=001 then {b=in, *=0} 
+// if sel=000 then {a=in, *=0} else if sel=001 then {b=in, *=0}
 // else if sel=010 then {c=in, *=0} else if sel=011 then {d=in, *=0}
 // else if sel=100 then {e=in, *=0} else if sel=101 then {f=in, *=0}
 // else if sel=110 then {g=in, *=0} else if sel=111 then {h=in, *=0}

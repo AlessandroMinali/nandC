@@ -40,7 +40,7 @@ void test_mux_gate16(u16 x, u16 y) {
 void test_mux4_gate16(u16 a, u16 b, u16 c, u16 d) {
   bool test = 0;
   u16 array[4] = { a, b, c, d};
-  
+
   printf(" s | f                o                | p\n");
   printf("------------------------------------------\n");
   for(u8 i = 0; i < 4; ++i) {
@@ -60,7 +60,7 @@ void test_mux4_gate16(u16 a, u16 b, u16 c, u16 d) {
 void test_mux8_gate16(u16 a, u16 b, u16 c, u16 d, u16 e, u16 f, u16 g, u16 h) {
   bool test = 0;
   u16 array[8] = { a, b, c, d, e, f, g, h};
-  
+
   printf("  s | f                o                | p\n");
   printf("-------------------------------------------\n");
   for(u8 i = 0; i < 8; ++i) {
@@ -94,5 +94,5 @@ void test_dmux_gate() {
 
   printf("%s %s!\n\n"KNRM, (test ? KRED"One or more tests failed for" : KGRN"All tests passed for"), "DMUX");
 }
- 
+
 // TODO:Alessandro test for DMUX4WAY and DMUX8WAY
