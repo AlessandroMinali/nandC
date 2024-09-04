@@ -134,24 +134,47 @@ DMUX8 dmux8way(a, s3) {
   return d;
 }
 
-// TODO: halfadder, fulladder, add16, inc16, ALU
+typedef struct ADD {
+  bool sum;
+  bool carry;
+} ADD;
+ADD halfadder(bool a, bool b) {
+  ADD result = { .sum = xor(a, b), .carry = and(a, b) };
+  return result;
+}
+
+ADD fulladder(bool a, bool b, bool c) {
+  ADD ab = halfadder(a, b);
+  ADD abc = halfadder(ab.sum, c);
+  ADD abc_ = halfadder(ab.carry, abc.carry);
+  ADD result = { .sum = abc.sum, .carry = abc_.sum };
+  return result;
+}
+
+uint16_t add16(uint16_t a, uint16_t b) {
+  ADD x = halfadder(get_bit(a, 0), get_bit(b, 0));
+
+  uint16_t result = x.sum;
+  for(uint8_t i = 1; i < 16; ++i) {
+    // printf("a: %d, b: %d | %d %d %d\n", a, b, get_bit(a, i), get_bit(b, i), x.carry);
+    x = fulladder(get_bit(a, i), get_bit(b, i), x.carry);
+    // printf("a: %d, b: %d | %d %d\n", a, b, x.sum, x.carry);
+    result = set_bit(result, x.sum, i);
+  }
+  return result;
+}
+
+uint16_t inc16(uint16_t a) {
+  return add16(a, 0x1);
+}
+
 // TODO: dff, bit, register, ram8, ram64, ram512, ram4k, ram16k, PC
 // TODO: memory, CPU, computer, screen, keyboard, dregister, aregister, rom32k, ram16k
 
 int main() {
-  //   printbits(mux8way16(0xf, 0xf0, 0xf00, 0xf000, 0x1, 0xf1, 0xf01, 0xf001, i));
-  // }
-
-  for(char i = 0; i < 8; ++i) {
-    printbits(dmux8way(1, i).a);
-    printbits(dmux8way(1, i).b);
-    printbits(dmux8way(1, i).c);
-    printbits(dmux8way(1, i).d);
-    printbits(dmux8way(1, i).e);
-    printbits(dmux8way(1, i).f);
-    printbits(dmux8way(1, i).g);
-    printbits(dmux8way(1, i).h);
-    printf("\n");
+  for(uint16_t i = 0; i < 16; ++i) {
+    uint16_t x = 0;
+    printbits(x = inc16(i));
   }
   return 0;
 }
