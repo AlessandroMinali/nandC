@@ -15,9 +15,7 @@ bool get_bit(uint16_t a, uint8_t pos) {
 uint16_t set_bit(uint16_t a, bool v, uint8_t pos) {
   return a | (v << pos);
 }
-uint16_t toggle_bit(uint16_t a, uint8_t pos) {
-  return a ^ (0x1 << pos);
-}
+
 uint16_t clear_bit(uint16_t a, uint8_t pos) {
   return a & ~(0x1 << pos);
 }

@@ -1,9 +1,32 @@
-#include "gate.h"
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 
-// given
+/* HELPER FUNCTION */
+// print 16-bit binary number
+void printbits(uint16_t v) {
+  for(char i = 15; i >= 0; i--) putchar('0' + ((v >> i) & 1));
+    putchar('\n');
+}
+
+// get bit <pos> of <a>
+bool get_bit(uint16_t a, uint8_t pos) {
+  return (a >> pos) & 0x1;
+}
+// set bit <pos> of <a> to value <v>
+uint16_t set_bit(uint16_t a, bool v, uint8_t pos) {
+  return (a & ~(0x1 << pos)) | (v << pos);
+}
+// apply <gate> to bit <pos> of <a>, <b>
+uint16_t gate_bit(uint16_t a, uint16_t b, uint8_t pos, bool (*gate)(bool, bool)) {
+  return set_bit(a, gate(get_bit(a, pos), get_bit(b, pos)), pos);
+}
+
+// NAND fundamental gate
 bool nand(bool a, bool b) {
   return !(a&b);
 }
+/* END OF HELPER FUNCTIONS */
 
 bool not(bool a) {
   return nand(a, a);
@@ -35,7 +58,7 @@ DMUX2 dmux(bool a, bool s) {
 
 uint16_t not16(a) {
   for(uint8_t i = 0; i < 16; ++i) {
-    a = set_bit(clear_bit(a, i), not(get_bit(a, i)), i);
+    a = set_bit(a, not(get_bit(a, i)), i);
   }
   return a;
 }
@@ -56,7 +79,7 @@ uint16_t or16(uint16_t a, uint16_t b) {
 
 uint16_t mux16(uint16_t a, uint16_t b, bool s) {
   for(uint8_t i = 0; i < 16; ++i) {
-    a = set_bit(clear_bit(a, i), mux(get_bit(a, i), get_bit(b, i), s), i);
+    a = set_bit(a, mux(get_bit(a, i), get_bit(b, i), s), i);
   }
   return a;
 }
