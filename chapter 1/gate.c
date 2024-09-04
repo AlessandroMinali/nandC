@@ -84,10 +84,10 @@ uint16_t mux16(uint16_t a, uint16_t b, bool s) {
   return a;
 }
 
-bool or8way(uint8_t a) {
+bool or16way(uint16_t a) { // asked for 8-way but 16-way is actually useful
   bool b = false;
 
-  for(uint8_t i = 0; i < 8; ++i) {
+  for(uint16_t i = 0; i < 16; ++i) {
     b = gate_bit(a, b, i, or);
   }
   return b;
@@ -168,13 +168,35 @@ uint16_t inc16(uint16_t a) {
   return add16(a, 0x1);
 }
 
+typedef struct ALU {
+  uint16_t out;
+  bool zr;
+  bool ng;
+} ALU;
+ALU alu(uint16_t x, uint16_t y, bool zx, bool nx, bool zy, bool ny, bool f, bool no) {
+  ALU output;
+  uint16_t zeroed = mux16(x, false, zx);
+  x = mux16(zeroed, not16(zeroed), nx);
+  zeroed = mux16(y, false, zy);
+  y = mux16(zeroed, not16(zeroed), ny);
+
+  output.out = mux16(and16(x, y), add16(x, y), f);
+  output.out = mux16(output.out, not16(output.out), no);
+
+  output.zr = not(or16way(output.out));
+  output.ng = get_bit(output.out, 15);
+
+  return output;
+}
+
 // TODO: dff, bit, register, ram8, ram64, ram512, ram4k, ram16k, PC
 // TODO: memory, CPU, computer, screen, keyboard, dregister, aregister, rom32k, ram16k
 
 int main() {
-  for(uint16_t i = 0; i < 16; ++i) {
-    uint16_t x = 0;
-    printbits(x = inc16(i));
-  }
+  // for(uint16_t i = 0; i < 16; ++i) {
+  //   printbits(0xff);
+  // }
+  ALU o = alu(0x5ba0, 0x1ed2, 0, 1, 0, 1, 0, 1);
+  printbits(o.out);
   return 0;
 }
