@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-/* HELPER FUNCTION */
+/* HELPER FUNCTIONS */
 // print 16-bit binary number
 inline void printbits(uint16_t v) {
   for(char i = 15; i >= 0; i--) putchar('0' + ((v >> i) & 1));
