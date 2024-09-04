@@ -4,21 +4,21 @@
 
 /* HELPER FUNCTIONS */
 // print 16-bit binary number
-inline void printbits(uint16_t v) {
+static inline void printbits(uint16_t v) {
   for(char i = 15; i >= 0; i--) putchar('0' + ((v >> i) & 1));
     putchar('\n');
 }
 
 // get bit <pos> of <a>
-inline bool get_bit(uint16_t a, uint8_t pos) {
+static inline bool get_bit(uint16_t a, uint8_t pos) {
   return (a >> pos) & 0x1;
 }
 // set bit <pos> of <a> to value <v>
-inline uint16_t set_bit(uint16_t a, bool v, uint8_t pos) {
+static inline uint16_t set_bit(uint16_t a, bool v, uint8_t pos) {
   return (a & ~(0x1 << pos)) | (v << pos);
 }
 // apply <gate> to bit <pos> of <a>, <b>
-inline uint16_t gate_bit(uint16_t a, uint16_t b, uint8_t pos, bool (*gate)(bool, bool)) {
+static inline uint16_t gate_bit(uint16_t a, uint16_t b, uint8_t pos, bool (*gate)(bool, bool)) {
   return set_bit(a, gate(get_bit(a, pos), get_bit(b, pos)), pos);
 }
 
