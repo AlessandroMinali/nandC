@@ -26,6 +26,19 @@ static inline uint16_t gate_bit(uint16_t a, uint16_t b, uint8_t pos, bool (*gate
 bool nand(bool a, bool b) {
   return !(a&b);
 }
+
+typedef struct DFF {
+  bool state;
+  bool next;
+} DFF;
+// DFF fundamental component
+bool dff(bool a, DFF* d) {
+  bool out = d->state;
+  d->state = d->next;
+  d->next = a;
+  return out;
+}
+
 /* END OF HELPER FUNCTIONS */
 
 bool not(bool a) {
@@ -87,7 +100,7 @@ uint16_t mux16(uint16_t a, uint16_t b, bool s) {
 bool or16way(uint16_t a) { // asked for 8-way but 16-way is actually useful
   bool b = false;
 
-  for(uint16_t i = 0; i < 16; ++i) {
+  for(uint8_t i = 0; i < 16; ++i) {
     b = gate_bit(a, b, i, or);
   }
   return b;
@@ -111,7 +124,7 @@ uint16_t mux8way16(uint16_t a, uint16_t b, uint16_t c, uint16_t d,
 typedef struct DMUX4 {
   bool a; bool b; bool c; bool d;
 } DMUX4;
-DMUX4 dmux4way(a, s2) {
+DMUX4 dmux4way(bool a, uint8_t s2) {
   DMUX2 in   = dmux(a, get_bit(s2, 1));
   DMUX2 out1 = dmux(in.a, get_bit(s2, 0));
   DMUX2 out2 = dmux(in.b, get_bit(s2, 0));
@@ -120,16 +133,19 @@ DMUX4 dmux4way(a, s2) {
   return d;
 }
 
-typedef struct DMUX8 {
-  bool a;  bool b; bool c; bool d;
-  bool e;  bool f; bool g; bool h;
+typedef union DMUX8{
+  struct {
+    bool a;  bool b; bool c; bool d;
+    bool e;  bool f; bool g; bool h;
+  };
+  bool arg[8];
 } DMUX8;
-DMUX8 dmux8way(a, s3) {
+DMUX8 dmux8way(bool a, uint8_t s3) {
   DMUX2 in   = dmux(a, get_bit(s3, 2));
   DMUX4 out1 = dmux4way(in.a, s3);
   DMUX4 out2 = dmux4way(in.b, s3);
-  DMUX8 d    = { out1.a, out1.b, out1.c, out1.d,
-                 out2.a, out2.b, out2.c, out2.d };
+  DMUX8 d    = {{ out1.a, out1.b, out1.c, out1.d,
+                  out2.a, out2.b, out2.c, out2.d }};
 
   return d;
 }
@@ -156,9 +172,7 @@ uint16_t add16(uint16_t a, uint16_t b) {
 
   uint16_t result = x.sum;
   for(uint8_t i = 1; i < 16; ++i) {
-    // printf("a: %d, b: %d | %d %d %d\n", a, b, get_bit(a, i), get_bit(b, i), x.carry);
     x = fulladder(get_bit(a, i), get_bit(b, i), x.carry);
-    // printf("a: %d, b: %d | %d %d\n", a, b, x.sum, x.carry);
     result = set_bit(result, x.sum, i);
   }
   return result;
@@ -189,14 +203,63 @@ ALU alu(uint16_t x, uint16_t y, bool zx, bool nx, bool zy, bool ny, bool f, bool
   return output;
 }
 
-// TODO: dff, bit, register, ram8, ram64, ram512, ram4k, ram16k, PC
+bool bit(bool a, bool l, DFF* d) {
+  bool out = d->next;
+  dff(mux(d->next, a, l), d);
+  return out;
+}
+
+uint16_t reg(uint16_t a, bool l, DFF (*d)[16]) {
+  for(uint8_t i = 0; i < 16; ++i) {
+    a = set_bit(a, bit(get_bit(a, i), l, &(*d)[i]), i);
+  }
+  return a;
+}
+
+uint16_t ram8(uint16_t a, bool l, uint8_t s3, DFF (*d)[8][16]) {
+  uint16_t o[8] = {0};
+  DMUX8 l8 = dmux8way(l, s3);
+  for(uint8_t i = 0; i < 8; ++i) {
+    o[i] = reg(a, l8.arg[i], &(*d)[i]);
+  }
+
+  return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], s3);
+}
+
+uint16_t ram64(uint16_t a, bool l, uint8_t s6, DFF (*d)[8][8][16]) {
+  // uint16_t o[8] = {0};
+  // DMUX8 l8 = dmux8way(l, s3);
+  // for(uint8_t i = 0; i < 8; ++i) {
+  //   o[i] = reg(a, l8.arg[i], &(*d)[i]);
+  // }
+
+  // return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], s6);
+  return 0;
+}
+
+// TODO: ram64, ram512, ram4k, ram16k, PC
 // TODO: memory, CPU, computer, screen, keyboard, dregister, aregister, rom32k, ram16k
 
 int main() {
-  // for(uint16_t i = 0; i < 16; ++i) {
-  //   printbits(0xff);
-  // }
-  ALU o = alu(0x5ba0, 0x1ed2, 0, 1, 0, 1, 0, 1);
-  printbits(o.out);
+  // DFF d1 = {0};
+  // printbits(bit(0, 0, &d1));
+  // printbits(bit(1, 1, &d1));
+  // printbits(bit(0, 0, &d1));
+  // printbits(bit(0, 0, &d1));
+  // printbits(bit(1, 1, &d1));
+  // printbits(bit(1, 1, &d1));
+  // printbits(bit(0, 0, &d1));
+
+  // printf("\n");
+
+  // DFF d[16] = {0};
+  // printbits(reg(0x0, 0, &d));
+  // printbits(reg(0xff, 1, &d));
+  // printbits(reg(0x0, 0, &d));
+  // printbits(reg(0x0, 0, &d));
+  // printbits(reg(0x33, 1, &d));
+  // printbits(reg(0x44, 1, &d));
+  // printbits(reg(0x55, 0, &d));
+
   return 0;
 }
