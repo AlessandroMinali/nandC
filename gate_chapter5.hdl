@@ -21,12 +21,18 @@ CHIP Memory {
     OUT out[16];
 
     PARTS:
-    DMux4Way(in= load, sel= address[13..14], a= rin1, b= rin2, c= sin, d= _);
+    DMux4Way(
+      in= load, sel= address[13..14],
+      a= rin1, b= rin2, c= sin, d= _
+    );
     Or(a= rin1, b= rin2, out= rin);
     RAM16K(in= in, load= rin, address= address[0..13], out= rout);
     Screen(in= in, load= sin, address= address[0..12], out= sout);
     Keyboard(out= kout);
-    Mux4Way16(a= rout, b= rout, c= sout, d= kout, sel= address[13..14], out= out);
+    Mux4Way16(
+      a= rout, b= rout, c= sout, d= kout,
+      sel= address[13..14], out= out
+    );
 }
 
 /** * The Hack Central Processing unit (CPU).
@@ -55,7 +61,12 @@ CHIP CPU {
       pc[15];       // address of next instruction
   PARTS:
 
-  Mux16(a[0..14]= instruction[0..14], b= alu_out, sel= instruction[15], out= a);
+  Mux16(
+    a[0..14]= instruction[0..14],
+    b= alu_out,
+    sel= instruction[15],
+    out= a
+  );
 
   // logic to prevent suprious load of A
   Not(in= instruction[15], out= na_inst);
@@ -66,16 +77,29 @@ CHIP CPU {
   And(a= instruction[15], b= instruction[4], out= loadd);
   DRegister(in= alu_out, load= loadd, out= x);
   Mux16(a= aout, b=inM, sel= instruction[12], out= y);
-  ALU(x= x, y= y, zx= instruction[11], nx= instruction[10], zy= instruction[9], ny= instruction[8], f= instruction[7], no= instruction[6], out= alu_out, out= outM, zr= _zr, ng= _ng);
+  ALU(
+    x= x, y= y,
+    zx= instruction[11], nx= instruction[10],
+    zy= instruction[9], ny= instruction[8],
+    f= instruction[7], no= instruction[6],
+    out= alu_out, out= outM, zr= _zr, ng= _ng
+  );
 
   Not(in= _ng, out= _g);
   Not(in= _zr, out= _nzr);
   And(a= _g, b= _nzr, out= g);
   Or(a= _zr, b= _ng, out= _zle);
   Or(a= _zr, b= _g, out= _zg);
-  Mux8Way16(a= false, b[0]= g, c[0]= _zr, d[0]= _zg, e[0]= _ng, f[0]= _nzr, g[0]=_zle , h= true, sel= instruction[0..2], out[0]= pcload);
+  Mux8Way16(
+    a= false, b[0]= g, c[0]= _zr, d[0]= _zg,
+    e[0]= _ng, f[0]= _nzr, g[0]=_zle, h= true,
+    sel= instruction[0..2], out[0]= pcload
+  );
   And(a= instruction[15], b= pcload, out= _pcload);
-  PC(in= aout, load= _pcload, inc= true, reset= reset, out[0..14]= pc);
+  PC(
+    in= aout, load= _pcload, inc= true, reset= reset,
+    out[0..14]= pc
+  );
 
   Not(in= instruction[12], out= _ni12);
   And(a= _ni12, b= instruction[3], out= _writeM);
@@ -94,11 +118,18 @@ CHIP CPU {
  * some input using the keyboard, or the program may do some procerssing.
  */
 CHIP Computer {
-
     IN reset;
 
     PARTS:
     ROM32K(address= _pc, out= _instruction);
-    CPU(inM= memoryOut, instruction= _instruction, reset= reset, outM= _outM, writeM= _writeM, addressM= _addressM, pc= _pc);
-    Memory(in= _outM, load= _writeM, address= _addressM, out= memoryOut);
+    CPU(
+      inM= memoryOut, instruction= _instruction,
+      reset= reset, outM= _outM,
+      writeM= _writeM, addressM= _addressM,
+      pc= _pc
+    );
+    Memory(
+      in= _outM, load= _writeM, address= _addressM,
+      out= memoryOut
+    );
 }

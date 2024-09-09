@@ -1,0 +1,210 @@
+/**
+ * 1-bit register:
+ * If load is asserted, the register's value is set to in;
+ * Otherwise, the register maintains its current value:
+ * if (load(t)) out(t+1) = in(t), else out(t+1) = out(t)
+ */
+CHIP Bit {
+    IN in, load;
+    OUT out;
+
+    PARTS:
+    Mux(a= o, b= in, sel= load, out= din);
+    DFF(in= din, out= o, out = out);   
+}
+
+/**
+ * 16-bit register:
+ * If load is asserted, the register's value is set to in;
+ * Otherwise, the register maintains its current value:
+ * if (load(t)) out(t+1) = int(t), else out(t+1) = out(t)
+ */
+CHIP Register {
+    IN in[16], load;
+    OUT out[16];
+
+    PARTS:
+    Bit(in= in[0], load= load, out= out[0]);
+    Bit(in= in[1], load= load, out= out[1]);
+    Bit(in= in[2], load= load, out= out[2]);
+    Bit(in= in[3], load= load, out= out[3]);
+    Bit(in= in[4], load= load, out= out[4]);
+    Bit(in= in[5], load= load, out= out[5]);
+    Bit(in= in[6], load= load, out= out[6]);
+    Bit(in= in[7], load= load, out= out[7]);
+    Bit(in= in[8], load= load, out= out[8]);
+    Bit(in= in[9], load= load, out= out[9]);
+    Bit(in= in[10], load= load, out= out[10]);
+    Bit(in= in[11], load= load, out= out[11]);
+    Bit(in= in[12], load= load, out= out[12]);
+    Bit(in= in[13], load= load, out= out[13]);
+    Bit(in= in[14], load= load, out= out[14]);
+    Bit(in= in[15], load= load, out= out[15]);
+}
+
+/**
+ * Memory of eight 16-bit registers.
+ * If load is asserted, the value of the register selected by
+ * address is set to in; Otherwise, the value does not change.
+ * The value of the selected register is emitted by out.
+ */
+CHIP RAM8 {
+    IN in[16], load, address[3];
+    OUT out[16];
+
+    PARTS:
+    DMux8Way(
+      in= load, sel= address,
+      a= load1, b= load2, c= load3, d= load4,
+      e= load5, f= load6, g= load7, h= load8);
+    Register(in= in, load= load1, out= m11);
+    Register(in= in, load= load2, out= m22);
+    Register(in= in, load= load3, out= m33);
+    Register(in= in, load= load4, out= m44);
+    Register(in= in, load= load5, out= m55);
+    Register(in= in, load= load6, out= m66);
+    Register(in= in, load= load7, out= m77);
+    Register(in= in, load= load8, out= m88);
+    Mux8Way16(
+      a= m11, b= m22, c= m33, d= m44,
+      e= m55, f= m66, g= m77, h= m88,
+      sel= address, out= out);    
+}
+
+/**
+ * Memory of sixty four 16-bit registers.
+ * If load is asserted, the value of the register selected by
+ * address is set to in; Otherwise, the value does not change.
+ * The value of the selected register is emitted by out.
+ */
+CHIP RAM64 {
+    IN in[16], load, address[6];
+    OUT out[16];
+
+    PARTS:
+    DMux8Way(
+      in= load, sel= address[0..2],
+      a= load1, b= load2, c= load3, d= load4,
+      e= load5, f= load6, g= load7, h= load8
+    );
+    RAM8(in= in, load= load1, address= address[3..5], out= m11);
+    RAM8(in= in, load= load2, address= address[3..5], out= m22);
+    RAM8(in= in, load= load3, address= address[3..5], out= m33);
+    RAM8(in= in, load= load4, address= address[3..5], out= m44);
+    RAM8(in= in, load= load5, address= address[3..5], out= m55);
+    RAM8(in= in, load= load6, address= address[3..5], out= m66);
+    RAM8(in= in, load= load7, address= address[3..5], out= m77);
+    RAM8(in= in, load= load8, address= address[3..5], out= m88);
+    Mux8Way16(
+      a= m11, b= m22, c= m33, d= m44,
+      e= m55, f= m66, g= m77, h= m88,
+      sel= address[0..2], out= out
+    );
+}
+
+/**
+ * Memory of 512 16-bit registers.
+ * If load is asserted, the value of the register selected by
+ * address is set to in; Otherwise, the value does not change.
+ * The value of the selected register is emitted by out.
+ */
+CHIP RAM512 {
+    IN in[16], load, address[9];
+    OUT out[16];
+
+    PARTS:
+    DMux8Way(
+      in= load, sel= address[0..2],
+      a= load1, b= load2, c= load3, d= load4,
+      e= load5, f= load6, g= load7, h= load8
+    );
+    RAM64(in= in, load= load1, address= address[3..8], out= m11);
+    RAM64(in= in, load= load2, address= address[3..8], out= m22);
+    RAM64(in= in, load= load3, address= address[3..8], out= m33);
+    RAM64(in= in, load= load4, address= address[3..8], out= m44);
+    RAM64(in= in, load= load5, address= address[3..8], out= m55);
+    RAM64(in= in, load= load6, address= address[3..8], out= m66);
+    RAM64(in= in, load= load7, address= address[3..8], out= m77);
+    RAM64(in= in, load= load8, address= address[3..8], out= m88);
+    Mux8Way16(
+      a= m11, b= m22, c= m33, d= m44,
+      e= m55, f= m66, g= m77, h= m88,
+      sel= address[0..2], out= out
+    );
+}
+
+/**
+ * Memory of 4K 16-bit registers.
+ * If load is asserted, the value of the register selected by
+ * address is set to in; Otherwise, the value does not change.
+ * The value of the selected register is emitted by out.
+ */
+CHIP RAM4K {
+    IN in[16], load, address[12];
+    OUT out[16];
+
+    PARTS:
+    DMux8Way(
+      in= load, sel= address[0..2],
+      a= load1, b= load2, c= load3, d= load4,
+      e= load5, f= load6, g= load7, h= load8
+    );
+    RAM512(in= in, load= load1, address= address[3..11], out= m11);
+    RAM512(in= in, load= load2, address= address[3..11], out= m22);
+    RAM512(in= in, load= load3, address= address[3..11], out= m33);
+    RAM512(in= in, load= load4, address= address[3..11], out= m44);
+    RAM512(in= in, load= load5, address= address[3..11], out= m55);
+    RAM512(in= in, load= load6, address= address[3..11], out= m66);
+    RAM512(in= in, load= load7, address= address[3..11], out= m77);
+    RAM512(in= in, load= load8, address= address[3..11], out= m88);
+    Mux8Way16(
+      a= m11, b= m22, c= m33, d= m44,
+      e= m55, f= m66, g= m77, h= m88,
+      sel= address[0..2], out= out
+    );
+}
+
+/**
+ * Memory of 16K 16-bit registers.
+ * If load is asserted, the value of the register selected by
+ * address is set to in; Otherwise, the value does not change.
+ * The value of the selected register is emitted by out.
+ */
+CHIP RAM16K {
+    IN in[16], load, address[14];
+    OUT out[16];
+
+    PARTS:
+    DMux4Way(
+      in= load, sel= address[0..1],
+      a= load1, b= load2, c= load3, d= load4
+    );
+    RAM4K(in= in, load= load1, address= address[2..13], out= m11);
+    RAM4K(in= in, load= load2, address= address[2..13], out= m22);
+    RAM4K(in= in, load= load3, address= address[2..13], out= m33);
+    RAM4K(in= in, load= load4, address= address[2..13], out= m44);
+    Mux4Way16(
+      a= m11, b= m22, c= m33, d= m44,
+      sel= address[0..1], out= out
+    );
+}
+
+/**
+ * A 16-bit counter.
+ * if      reset(t): out(t+1) = 0
+ * else if load(t):  out(t+1) = in(t)
+ * else if inc(t):   out(t+1) = out(t) + 1
+ * else              out(t+1) = out(t)
+ */
+CHIP PC {
+    IN in[16], reset, load, inc;
+    OUT out[16];
+    
+    PARTS:
+    Register(in= din3, load= true, out= out, out = o);
+    Inc16(in= o, out= next);
+    
+    Mux16(a= o, b= next, sel= inc, out= din1);
+    Mux16(a= din1, b= in, sel= load, out= din2);
+    Mux16(a= din2, b= false, sel= reset, out= din3);
+}
