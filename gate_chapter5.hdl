@@ -1,0 +1,104 @@
+/**
+ * The complete address space of the Hack computer's memory,
+ * including RAM and memory-mapped I/O.
+ * The chip facilitates read and write operations, as follows:
+ *     Read:  out(t) = Memory[address(t)](t)
+ *     Write: if load(t-1) then Memory[address(t-1)](t) = in(t-1)
+ * In words: the chip always outputs the value stored at the memory
+ * location specified by address. If load=1, the in value is loaded
+ * into the memory location specified by address. This value becomes
+ * available through the out output from the next time step onward.
+ * Address space rules:
+ * Only the upper 16K+8K+1 words of the Memory chip are used.
+ * Access to address>0x6000 is invalid and reads 0. Access to any address
+ * in the range 0x4000-0x5FFF results in accessing the screen memory
+ * map. Access to address 0x6000 results in accessing the keyboard
+ * memory map. The behavior in these addresses is described in the Screen
+ * and Keyboard chip specifications given in the lectures and the book.
+ */
+CHIP Memory {
+    IN in[16], load, address[15];
+    OUT out[16];
+
+    PARTS:
+    DMux4Way(in= load, sel= address[13..14], a= rin1, b= rin2, c= sin, d= _);
+    Or(a= rin1, b= rin2, out= rin);
+    RAM16K(in= in, load= rin, address= address[0..13], out= rout);
+    Screen(in= in, load= sin, address= address[0..12], out= sout);
+    Keyboard(out= kout);
+    Mux4Way16(a= rout, b= rout, c= sout, d= kout, sel= address[13..14], out= out);
+}
+
+/** * The Hack Central Processing unit (CPU).
+* Parses the binary code in the instruction input and executes it according to the
+* Hack machine language specification. In the case of a C-instruction, computes the
+* function specified by the instruction. If the instruction specifies to read a memory
+* value, the inM input is expected to contain this value. If the instruction specifies
+* to write a value to the memory, sets the outM output to this value, sets the addressM
+* output to the target address, and asserts the writeM output (when writeM = 0, any
+* value may appear in outM).
+* If the reset input is 0, computes the address of the next instruction and sets the
+* pc output to that value. If the reset input is 1, sets pc to 0.
+* Note: The outM and writeM outputs are combinational: they are affected by the
+* instruction's execution during the current cycle. The addressM and pc outputs are * clocked: although they are affected by the instruction's execution, they commit to
+* their new values only in the next cycle.
+*/
+CHIP CPU {
+  IN inM[16],       // M value input (M = contents of RAM[A])
+  instruction[16],  // Instruction for execution
+  reset;            // Signals whether to re-start the current
+                    // program (reset==1) or continue executing
+                    // the current program (reset==0).
+  OUT outM[16],     // M value output
+      writeM,       // Write to M?
+      addressM[15], // Address in data memory (of M)
+      pc[15];       // address of next instruction
+  PARTS:
+
+  Mux16(a[0..14]= instruction[0..14], b= alu_out, sel= instruction[15], out= a);
+
+  // logic to prevent suprious load of A
+  Not(in= instruction[15], out= na_inst);
+  And(a= instruction[15], b= instruction[5], out= _loada);
+  Or(a= na_inst, b= _loada, out= loada);
+  ARegister(in= a, load= loada, out= aout, out[0..14]=addressM);
+  // logic to prevent suprious load of D
+  And(a= instruction[15], b= instruction[4], out= loadd);
+  DRegister(in= alu_out, load= loadd, out= x);
+  Mux16(a= aout, b=inM, sel= instruction[12], out= y);
+  ALU(x= x, y= y, zx= instruction[11], nx= instruction[10], zy= instruction[9], ny= instruction[8], f= instruction[7], no= instruction[6], out= alu_out, out= outM, zr= _zr, ng= _ng);
+
+  Not(in= _ng, out= _g);
+  Not(in= _zr, out= _nzr);
+  And(a= _g, b= _nzr, out= g);
+  Or(a= _zr, b= _ng, out= _zle);
+  Or(a= _zr, b= _g, out= _zg);
+  Mux8Way16(a= false, b[0]= g, c[0]= _zr, d[0]= _zg, e[0]= _ng, f[0]= _nzr, g[0]=_zle , h= true, sel= instruction[0..2], out[0]= pcload);
+  And(a= instruction[15], b= pcload, out= _pcload);
+  PC(in= aout, load= _pcload, inc= true, reset= reset, out[0..14]= pc);
+
+  Not(in= instruction[12], out= _ni12);
+  And(a= _ni12, b= instruction[3], out= _writeM);
+  And(a= instruction[15], b= _writeM, out= writeM);
+}
+
+/**
+ * The Hack computer, consisting of CPU, ROM and RAM.
+ * When reset = 0, the program stored in the ROM executes.
+ * When reset = 1, the program's execution restarts.
+ * Thus, to start running the currently loaded program,
+ * set reset to 1, and then set it to 0.
+ * From this point onwards, the user is at the mercy of the software.
+ * Depending on the program's code, and whether the code is correct,
+ * the screen may show some output, the user may be expected to enter
+ * some input using the keyboard, or the program may do some procerssing.
+ */
+CHIP Computer {
+
+    IN reset;
+
+    PARTS:
+    ROM32K(address= _pc, out= _instruction);
+    CPU(inM= memoryOut, instruction= _instruction, reset= reset, outM= _outM, writeM= _writeM, addressM= _addressM, pc= _pc);
+    Memory(in= _outM, load= _writeM, address= _addressM, out= memoryOut);
+}

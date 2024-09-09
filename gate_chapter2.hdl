@@ -1,0 +1,182 @@
+/**
+ * Computes the sum of two bits.
+ */
+CHIP HalfAdder {
+    IN a, b;    // 1-bit inputs
+    OUT sum,    // Right bit of a + b
+        carry;  // Left bit of a + b
+
+    PARTS:
+    Xor(a = a, b = b, out = sum);
+    And(a= a, b= b, out= carry);
+}
+
+/**
+ * Computes the sum of three bits.
+ */
+CHIP FullAdder {
+    IN a, b, c;  // 1-bit inputs
+    OUT sum,     // Right bit of a + b + c
+        carry;   // Left bit of a + b + c
+
+    PARTS:
+    HalfAdder(a= a, b= b, sum= ab, carry= ab_);
+    HalfAdder(a= ab, b= c, sum= sum, carry= abc_);
+    HalfAdder(a= ab_, b= abc_, sum= carry, carry= _);
+}
+
+/**
+ * 16-bit adder: Adds two 16-bit two's complement values.
+ * The most significant carry bit is ignored.
+ */
+CHIP Add16 {
+    IN a[16], b[16];
+    OUT out[16];
+
+    PARTS:
+    HalfAdder(a= a[0], b= b[0], sum= out[0], carry= ac0);
+    FullAdder(a= a[1], b= b[1], c= ac0, sum= out[1], carry= ac1);
+    FullAdder(a= a[2], b= b[2], c= ac1, sum= out[2], carry= ac2);
+    FullAdder(a= a[3], b= b[3], c= ac2, sum= out[3], carry= ac3);
+    FullAdder(a= a[4], b= b[4], c= ac3, sum= out[4], carry= ac4);
+    FullAdder(a= a[5], b= b[5], c= ac4, sum= out[5], carry= ac5);
+    FullAdder(a= a[6], b= b[6], c= ac5, sum= out[6], carry= ac6);
+    FullAdder(a= a[7], b= b[7], c= ac6, sum= out[7], carry= ac7);
+    FullAdder(a= a[8], b= b[8], c= ac7, sum= out[8], carry= ac8);
+    FullAdder(a= a[9], b= b[9], c= ac8, sum= out[9], carry= ac9);
+    FullAdder(a= a[10], b= b[10], c= ac9, sum= out[10], carry= ac10);
+    FullAdder(a= a[11], b= b[11], c= ac10, sum= out[11], carry= ac11);
+    FullAdder(a= a[12], b= b[12], c= ac11, sum= out[12], carry= ac12);
+    FullAdder(a= a[13], b= b[13], c= ac12, sum= out[13], carry= ac13);
+    FullAdder(a= a[14], b= b[14], c= ac13, sum= out[14], carry= ac14);
+    FullAdder(a= a[15], b= b[15], c= ac14, sum= out[15], carry= _);
+}
+
+/**
+ * 16-bit incrementer:
+ * out = in + 1
+ */
+CHIP Inc16 {
+    IN in[16];
+    OUT out[16];
+
+    PARTS:
+    Add16(a = in, b[0] = true, out = out);
+}
+
+/**
+ * ALU (Arithmetic Logic Unit):
+ * Computes out = one of the following functions:
+ *                0, 1, -1,
+ *                x, y, !x, !y, -x, -y,
+ *                x + 1, y + 1, x - 1, y - 1,
+ *                x + y, x - y, y - x,
+ *                x & y, x | y
+ * on the 16-bit inputs x, y,
+ * according to the input bits zx, nx, zy, ny, f, no.
+ * In addition, computes the two output bits:
+ * if (out == 0) zr = 1, else zr = 0
+ * if (out < 0)  ng = 1, else ng = 0
+ */
+// Implementation: Manipulates the x and y inputs
+// and operates on the resulting values, as follows:
+// if (zx == 1) sets x = 0        // 16-bit constant
+// if (nx == 1) sets x = !x       // bitwise not
+// if (zy == 1) sets y = 0        // 16-bit constant
+// if (ny == 1) sets y = !y       // bitwise not
+// if (f == 1)  sets out = x + y  // integer 2's complement addition
+// if (f == 0)  sets out = x & y  // bitwise and
+// if (no == 1) sets out = !out   // bitwise not
+
+CHIP ALU {
+    IN
+        x[16], y[16],  // 16-bit inputs
+        zx, // zero the x input?
+        nx, // negate the x input?
+        zy, // zero the y input?
+        ny, // negate the y input?
+        f,  // compute (out = x + y) or (out = x & y)?
+        no; // negate the out output?
+    OUT
+        out[16], // 16-bit output
+        zr,      // if (out == 0) equals 1, else 0
+        ng;      // if (out < 0)  equals 1, else 0
+
+    PARTS:
+    Mux16(a= x, b= false, sel= zx, out= xzero);
+    Not16(in= xzero, out= xneg);
+    Mux16(a= xzero, b= xneg, sel= nx, out= x_);
+
+    Mux16(a= y, b= false, sel= zy, out= yzero);
+    Not16(in= yzero, out= yneg);
+    Mux16(a= yzero, b= yneg, sel= ny, out= y_);
+
+    Add16(a = x_, b = y_, out = out_add);
+    And16(a= x_, b= y_, out= out_and);
+    Mux16(a= out_and, b= out_add, sel= f, out= out_f);
+
+    Not16(in= out_f, out= nout_f);
+    Mux16(a= out_f, b= nout_f, sel= no, out= out);
+}
+
+/**
+ * ALU (Arithmetic Logic Unit):
+ * Computes out = one of the following functions:
+ *                0, 1, -1,
+ *                x, y, !x, !y, -x, -y,
+ *                x + 1, y + 1, x - 1, y - 1,
+ *                x + y, x - y, y - x,
+ *                x & y, x | y
+ * on the 16-bit inputs x, y,
+ * according to the input bits zx, nx, zy, ny, f, no.
+ * In addition, computes the two output bits:
+ * if (out == 0) zr = 1, else zr = 0
+ * if (out < 0)  ng = 1, else ng = 0
+ */
+// Implementation: Manipulates the x and y inputs
+// and operates on the resulting values, as follows:
+// if (zx == 1) sets x = 0        // 16-bit constant
+// if (nx == 1) sets x = !x       // bitwise not
+// if (zy == 1) sets y = 0        // 16-bit constant
+// if (ny == 1) sets y = !y       // bitwise not
+// if (f == 1)  sets out = x + y  // integer 2's complement addition
+// if (f == 0)  sets out = x & y  // bitwise and
+// if (no == 1) sets out = !out   // bitwise not
+
+CHIP ALU {
+    IN
+        x[16], y[16],  // 16-bit inputs
+        zx, // zero the x input?
+        nx, // negate the x input?
+        zy, // zero the y input?
+        ny, // negate the y input?
+        f,  // compute (out = x + y) or (out = x & y)?
+        no; // negate the out output?
+    OUT
+        out[16], // 16-bit output
+        zr,      // if (out == 0) equals 1, else 0
+        ng;      // if (out < 0)  equals 1, else 0
+
+    PARTS:
+    Mux16(a= x, b= false, sel= zx, out= xzero);
+    Not16(in= xzero, out= xneg);
+    Mux16(a= xzero, b= xneg, sel= nx, out= x_);
+
+    Mux16(a= y, b= false, sel= zy, out= yzero);
+    Not16(in= yzero, out= yneg);
+    Mux16(a= yzero, b= yneg, sel= ny, out= y_);
+
+    Add16(a = x_, b = y_, out = out_add);
+    And16(a= x_, b= y_, out= out_and);
+    Mux16(a= out_and, b= out_add, sel= f, out= out_f);
+
+    Not16(in= out_f, out= nout_f);
+    Mux16(a= out_f, b= nout_f, sel= no, out= out, out[15]= _out, out[0..7]= _out8, out[8..15] = _out16);
+
+    Or8Way(in= _out8, out= or_out8);
+    Or8Way(in= _out16, out= or_out16);
+    Or(a= or_out8, b= or_out16, out= _zr);
+    Not(in= _zr, out= zr);
+
+    And(a= _out, b= true, out= ng);
+}

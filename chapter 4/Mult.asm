@@ -15,7 +15,7 @@
     @R2
     M=D+M   // r2 += r0
     @LOOP
-    0;JMP 
+    0;JMP
 (END)
     @END
     0;JMP
