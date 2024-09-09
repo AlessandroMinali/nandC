@@ -13,6 +13,15 @@ static inline void printbits(uint16_t v) {
 static inline bool get_bit(uint16_t a, uint8_t pos) {
   return (a >> pos) & 0x1;
 }
+static const uint16_t mask_lut[16] = {
+  0x1, 0x3, 0x7, 0xf,
+  0x1f, 0x3f, 0x7f, 0xff,
+  0x1ff, 0x3ff, 0x7ff, 0xfff,
+  0x1fff, 0x3fff, 0x7fff, 0xffff
+};
+static inline uint16_t get_bits(uint16_t a, uint8_t start, uint8_t end) {
+  return (a >> start) & mask_lut[end - start + 1];
+}
 // set bit <pos> of <a> to value <v>
 static inline uint16_t set_bit(uint16_t a, bool v, uint8_t pos) {
   return (a & ~(0x1 << pos)) | (v << pos);
@@ -121,14 +130,17 @@ uint16_t mux8way16(uint16_t a, uint16_t b, uint16_t c, uint16_t d,
          get_bit(s3, 2));
 }
 
-typedef struct DMUX4 {
-  bool a; bool b; bool c; bool d;
+typedef union DMUX4 {
+  struct {
+    bool a; bool b; bool c; bool d;
+  };
+  bool arg[4];
 } DMUX4;
 DMUX4 dmux4way(bool a, uint8_t s2) {
   DMUX2 in   = dmux(a, get_bit(s2, 1));
   DMUX2 out1 = dmux(in.a, get_bit(s2, 0));
   DMUX2 out2 = dmux(in.b, get_bit(s2, 0));
-  DMUX4 d    = { out1.a, out1.b, out2.a, out2.b };
+  DMUX4 d    = {{ out1.a, out1.b, out2.a, out2.b }};
 
   return d;
 }
@@ -209,57 +221,97 @@ bool bit(bool a, bool l, DFF* d) {
   return out;
 }
 
-uint16_t reg(uint16_t a, bool l, DFF (*d)[16]) {
+typedef struct {
+  DFF d[16];
+} REG16;
+uint16_t reg(uint16_t a, bool l, REG16 *d) {
   for(uint8_t i = 0; i < 16; ++i) {
-    a = set_bit(a, bit(get_bit(a, i), l, &(*d)[i]), i);
+    a = set_bit(a, bit(get_bit(a, i), l, (DFF*) &(*d) + i), i);
   }
   return a;
 }
 
-uint16_t ram8(uint16_t a, bool l, uint8_t s3, DFF (*d)[8][16]) {
+typedef struct {
+  REG16 d[8];
+} RAM8;
+uint16_t ram8(uint16_t a, bool l, uint8_t s3, RAM8 *d) {
   uint16_t o[8] = {0};
   DMUX8 l8 = dmux8way(l, s3);
   for(uint8_t i = 0; i < 8; ++i) {
-    o[i] = reg(a, l8.arg[i], &(*d)[i]);
+    o[i] = reg(a, l8.arg[i], (REG16 *) &(*d) + i);
   }
 
   return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], s3);
 }
 
-uint16_t ram64(uint16_t a, bool l, uint8_t s6, DFF (*d)[8][8][16]) {
-  // uint16_t o[8] = {0};
-  // DMUX8 l8 = dmux8way(l, s3);
-  // for(uint8_t i = 0; i < 8; ++i) {
-  //   o[i] = reg(a, l8.arg[i], &(*d)[i]);
-  // }
+typedef struct {
+  RAM8 d[8];
+} RAM64;
+uint16_t ram64(uint16_t a, bool l, uint8_t s6, RAM64 *d) {
+  uint16_t o[8] = {0};
+  DMUX8 l8 = dmux8way(l, s6);
+  for(uint8_t i = 0; i < 8; ++i) {
+    o[i] = ram8(a, l8.arg[i], get_bits(s6, 3, 5), (RAM8 *) &(*d) + i);
+  }
 
-  // return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], s6);
-  return 0;
+  return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], s6);
 }
 
-// TODO: ram64, ram512, ram4k, ram16k, PC
+typedef struct {
+  RAM64 d[8];
+} RAM512;
+uint16_t ram512(uint16_t a, bool l, uint8_t s9, RAM512 *d) {
+  uint16_t o[8] = {0};
+  DMUX8 l8 = dmux8way(l, s9);
+  for(uint8_t i = 0; i < 8; ++i) {
+    o[i] = ram64(a, l8.arg[i], get_bits(s9, 3, 8), (RAM64 *) &(*d) + i);
+  }
+
+  return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], s9);
+}
+
+typedef struct {
+  RAM512 d[8];
+} RAM4K;
+uint16_t ram4K(uint16_t a, bool l, uint8_t s12, RAM4K *d) {
+  uint16_t o[8] = {0};
+  DMUX8 l8 = dmux8way(l, s12);
+  for(uint8_t i = 0; i < 8; ++i) {
+    o[i] = ram512(a, l8.arg[i], get_bits(s12, 3, 11), (RAM512 *) &(*d) + i);
+  }
+
+  return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], s12);
+}
+
+typedef struct {
+  RAM4K d[4];
+} RAM16K;
+uint16_t ram16K(uint16_t a, bool l, uint8_t s14, RAM16K *d) {
+  uint16_t o[4] = {0};
+  DMUX4 l4 = dmux4way(l, s14);
+  for(uint8_t i = 0; i < 4; ++i) {
+    o[i] = ram4K(a, l4.arg[i], get_bits(s14, 2, 13), (RAM4K *) &(*d) + i);
+  }
+
+  return mux4way16(o[0], o[1], o[2], o[3], s14);
+}
+
+uint16_t pc(uint16_t in, bool reset, bool load, bool inc, REG16 *r) {
+  uint16_t current = reg(0, false, r);
+  uint16_t next = mux16(mux16(mux16(current, inc16(current), inc), in, load), false, reset);
+  return reg(next, true, r);
+}
+
 // TODO: memory, CPU, computer, screen, keyboard, dregister, aregister, rom32k, ram16k
 
 int main() {
-  // DFF d1 = {0};
-  // printbits(bit(0, 0, &d1));
-  // printbits(bit(1, 1, &d1));
-  // printbits(bit(0, 0, &d1));
-  // printbits(bit(0, 0, &d1));
-  // printbits(bit(1, 1, &d1));
-  // printbits(bit(1, 1, &d1));
-  // printbits(bit(0, 0, &d1));
-
-  // printf("\n");
-
-  // DFF d[16] = {0};
-  // printbits(reg(0x0, 0, &d));
-  // printbits(reg(0xff, 1, &d));
-  // printbits(reg(0x0, 0, &d));
-  // printbits(reg(0x0, 0, &d));
-  // printbits(reg(0x33, 1, &d));
-  // printbits(reg(0x44, 1, &d));
-  // printbits(reg(0x55, 0, &d));
-
+  REG16 _pc = {0};
+  printbits(pc(0, 0, 0, 1, &_pc));
+  printbits(pc(0, 0, 0, 0, &_pc));
+  printbits(pc(0, 0, 0, 0, &_pc));
+  printbits(pc(1, 1, 1, 1, &_pc));
+  printbits(pc(0xf, 0, 1, 1, &_pc));
+  printbits(pc(0, 0, 0, 1, &_pc));
+  printbits(pc(0, 0, 0, 0, &_pc));
   return 0;
 }
