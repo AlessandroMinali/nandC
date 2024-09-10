@@ -368,6 +368,7 @@ void computer(bool r, RAM16K *instruction, RAM16K *m, RAM16K *s, REG16 *k, REG16
 }
 
 // TODO: test memory, cpu, computer
+// TODO: print memory maps in hex(registers:a, d, pc; and ram: row of eight 16-bit cells;)
 
 int main() {
   RAM16K instruction = {0};
