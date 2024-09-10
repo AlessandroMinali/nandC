@@ -302,16 +302,82 @@ uint16_t pc(uint16_t in, bool reset, bool load, bool inc, REG16 *r) {
   return reg(next, true, r);
 }
 
-// TODO: memory, CPU, computer, screen, keyboard, dregister, aregister, rom32k, ram16k
+
+uint16_t memory(uint16_t a, bool l, uint16_t s15, RAM16K *m, RAM16K *s, REG16 *k) {
+  DMUX4 d = dmux4way(l, get_bits(s15, 13, 14));
+  uint16_t mout = ram16K(a, or(d.a, d.b), s15, m);
+  uint16_t sout = ram16K(a, d.c, s15, s);
+  uint16_t kout = reg(0, 0, k);
+  return mux4way16(mout, mout, sout, kout, get_bits(s15, 13, 14));
+}
+
+typedef struct {
+  uint16_t outM;
+  uint16_t addressM;
+  uint16_t pc;
+  bool writeM;
+} CPU;
+
+CPU cpu(uint16_t a, uint16_t ins, bool r, REG16 *a_reg, REG16 *d_reg, REG16 *pc_reg) {
+  CPU c = {0};
+  bool ins15 = get_bit(ins, 15);
+  uint16_t acur = reg(0, 0, a_reg);
+  uint16_t dcur = reg(0, 0, d_reg);
+  
+  uint16_t y = mux16(acur, a, get_bit(ins, 12));
+  ALU aluout = alu(
+    dcur, y,
+    get_bit(ins, 11),
+    get_bit(ins, 10),
+    get_bit(ins, 9),
+    get_bit(ins, 8),
+    get_bit(ins, 7),
+    get_bit(ins, 6)
+  );
+
+  bool _g = not(aluout.ng);
+  bool _nzr = not(aluout.zr);
+  bool g = and(_g, _nzr);
+  bool zl = or(aluout.zr, aluout.ng);
+  bool zg = or(aluout.zr, _g);
+  bool loadpc = get_bit(mux8way16(
+    false, g, aluout.zr, zg,
+    aluout.ng, _nzr, zl, true,
+    ins
+  ), 0);
+  c.pc = pc(acur, r, and(ins15, loadpc), true, pc_reg);
+
+  uint16_t ain = mux16(ins, aluout.out, ins15);
+  bool loada = or(not(ins15), and(ins15, get_bit(ins, 5)));
+  reg(ain, loada, a_reg);
+  bool loadd = and(ins15, get_bit(ins, 4));
+  reg(aluout.out, loadd, d_reg);
+
+  c.outM = aluout.out;
+  c.writeM = and(ins15, and(not(get_bit(ins, 12)), get_bit(ins, 3)));
+  c.addressM = acur;
+
+  return c;
+}
+
+void computer(bool r, RAM16K *instruction, RAM16K *m, RAM16K *s, REG16 *k, REG16 *a_reg, REG16 *d_reg, REG16 *pc_reg) {
+  uint16_t ins = ram16K(0, 0, reg(0, 0, pc_reg), instruction);
+  uint16_t inM = memory(0, 0, 0, m, s, k);
+  CPU c = cpu(inM, ins, r, a_reg, d_reg, pc_reg);
+  memory(c.outM, c.writeM, c.addressM, m, s, k);
+}
+
+// TODO: test memory, cpu, computer
 
 int main() {
+  RAM16K instruction = {0};
+  RAM16K data = {0};
+  RAM16K screen = {0};
+  REG16 keyboard = {0};
+  REG16 a = {0};
+  REG16 d = {0};
   REG16 _pc = {0};
-  printbits(pc(0, 0, 0, 1, &_pc));
-  printbits(pc(0, 0, 0, 0, &_pc));
-  printbits(pc(0, 0, 0, 0, &_pc));
-  printbits(pc(1, 1, 1, 1, &_pc));
-  printbits(pc(0xf, 0, 1, 1, &_pc));
-  printbits(pc(0, 0, 0, 1, &_pc));
-  printbits(pc(0, 0, 0, 0, &_pc));
+  computer(0, &instruction, &data, &screen, &keyboard, &a, &d, &_pc);
+
   return 0;
 }
