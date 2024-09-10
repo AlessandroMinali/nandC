@@ -1,3 +1,5 @@
+// a 16-bit computer defined with just NAND and DFF
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -367,7 +369,7 @@ void computer(bool r, RAM16K *instruction, RAM16K *m, RAM16K *s, REG16 *k, REG16
   memory(c.outM, c.writeM, c.addressM, m, s, k);
 }
 
-// TODO: test memory, cpu, computer
+// TODO: test memory, cpu, computer, and the rest(?)
 // TODO: print memory maps in hex(registers:a, d, pc; and ram: row of eight 16-bit cells;)
 
 int main() {
