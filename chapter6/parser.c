@@ -20,17 +20,21 @@ bool p_has_more_commands(FILE* f) {
   return feof(f) == 0;
 }
 void p_advance(FILE* f, char *buf) {
-  fgets(buf, 512, f);
+  char tmp[512] = {0};
+  fgets(tmp, 512, f);
+
+  int index = 0;
   while(1) {
-    char *s = buf;
+    char *s = tmp;
     while(*s != '\0' && *s != '\n') {
-      if (*(s++) == '/') { break; } // NOTE: ignore comments
-      if (*s != ' ') {
-        buf[strlen(buf) - 1] = '\0';
-        return;
-      } // NOTE: we skip empty lines
+      if (*s == '/') { break; } // ignore comments
+      if (*s != ' ') { // skip spaces
+        buf[index++] = *s;
+      }
+      ++s;
     }
-    fgets(buf, 512, f);
+    buf[index] = 0;
+    if (buf[0] == 0) { fgets(tmp, 512, f); } else { return; }
   }
 }
 typedef enum { A_COMMAND, C_COMMAND, L_COMMAND, } Command;
@@ -204,6 +208,9 @@ int main(int argc, char const *argv[])
         printbits8(c_jump(jump_buf));
         printf("\t");
       }
+
+      uint16_t word = 0xe000 | (c_comp(comp_buf) << 6) |(c_dest(dest_buf) << 3) | c_jump(jump_buf);
+      writebits(word, 16, fo);
     }
     printf("\n");
   }
