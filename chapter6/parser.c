@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#define MAX_SZ 64
+
 static inline void printbits8(uint16_t v) {
   for(char i = 7; i >= 0; i--) putchar('0' + ((v >> i) & 1));
 }
@@ -20,8 +22,8 @@ bool p_has_more_commands(FILE* f) {
   return feof(f) == 0;
 }
 void p_advance(FILE* f, char *buf) {
-  char tmp[512] = {0};
-  fgets(tmp, 512, f);
+  char tmp[MAX_SZ] = {0};
+  fgets(tmp, MAX_SZ, f);
 
   int index = 0;
   while(1) {
@@ -34,7 +36,7 @@ void p_advance(FILE* f, char *buf) {
       ++s;
     }
     buf[index] = 0;
-    if (buf[0] == 0) { fgets(tmp, 512, f); } else { return; }
+    if (buf[0] == 0) { fgets(tmp, MAX_SZ, f); } else { return; }
   }
 }
 typedef enum { A_COMMAND, C_COMMAND, L_COMMAND, } Command;
@@ -54,7 +56,7 @@ Command p_commandType(char *buf) {
   }
 }
 
-void p_symbol(char *buf, char out[4]) {
+void p_symbol(char *buf, char out[MAX_SZ]) {
   char *s = buf;
   uint8_t i = 0;
   while(*(++s) != '\0' && *s != ')') {
@@ -170,8 +172,8 @@ uint8_t c_jump(char buf[4]) {
 
 int main(int argc, char const *argv[])
 {
-  char command_buf[512] = {0};
-  char symbol_buf[512] = {0};
+  char command_buf[MAX_SZ] = {0};
+  char symbol_buf[MAX_SZ] = {0};
   char dest_buf[4] = {0};
   char comp_buf[4] = {0};
   char jump_buf[4] = {0};
