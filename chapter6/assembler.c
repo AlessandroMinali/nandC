@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define MAX_SZ 256   // max length of lines in program
+#define MAX_SZ 256   // max length per lines of the program
 #define MAX_VAR 1024 // max numbers of variables allowed per program
 
 static inline void writebits(uint16_t v, uint8_t sz, FILE *f) {
