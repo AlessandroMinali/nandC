@@ -1,16 +1,14 @@
 // only parses valid Hack programs
+// almost no error checking
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
 
-#define MAX_SZ 256
-#define MAX_VAR 512
+#define MAX_SZ 256   // max length of lines in program
+#define MAX_VAR 1024 // max numbers of variables allowed per program
 
-static inline void printbits8(uint16_t v) {
-  for(char i = 7; i >= 0; i--) putchar('0' + ((v >> i) & 1));
-}
 static inline void writebits(uint16_t v, uint8_t sz, FILE *f) {
   for(char i = sz - 1; i >= 0; i--) putc('0' + ((v >> i) & 1), f);
   putc('\n', f);
@@ -27,18 +25,15 @@ void p_advance(FILE* f, char *buf) {
   fgets(tmp, MAX_SZ, f);
 
   int index = 0;
-  while(1) {
-    char *s = tmp;
-    while(*s != '\0' && *s != '\n') {
-      if (*s == '/') { break; } // ignore comments
-      if (*s != ' ') { // skip spaces
-        buf[index++] = *s;
-      }
-      ++s;
+  char *s = tmp;
+  while(*s != '\0' && *s != '\n') {
+    if (*s == '/') { break; } // ignore comments
+    if (*s != ' ') { // skip spaces
+      buf[index++] = *s;
     }
-    buf[index] = 0;
-    if (buf[0] == 0 && !feof(f)) { fgets(tmp, MAX_SZ, f); } else { return; }
+    ++s;
   }
+  buf[index] = '\0';
 }
 typedef enum { A_COMMAND, C_COMMAND, L_COMMAND, } Command;
 Command p_commandType(char *buf) {
@@ -174,6 +169,7 @@ uint8_t c_jump(char buf[4]) {
 char symbol_table[MAX_VAR][MAX_SZ] = {{0}};
 uint16_t address_table[MAX_VAR] = {0};
 uint16_t symbol_p = 0x0;
+uint16_t address_p = 0x10;
 void s_add_entry(char *symbol, uint16_t address) {
   uint8_t i = 0;
   for(; i < MAX_SZ - 1 && i < strlen(symbol); ++i) {
@@ -183,12 +179,12 @@ void s_add_entry(char *symbol, uint16_t address) {
   address_table[symbol_p] = address;
   ++symbol_p;
 }
-// bool s_contains(char *symbol) {} // PERF: collapse into following function
+// bool s_contains(char *symbol) {} // PERF: collapsed into following function
 uint16_t s_get_address(char *symbol) {
   for(uint16_t i = 0; i < MAX_VAR; ++i) {
-    if (strncmp(symbol, symbol_table[i], MAX_SZ)) { return address_table[i]; }
+    if (strncmp(symbol, symbol_table[i], MAX_SZ) == 0) { return address_table[i]; }
   }
-  return -1;
+  return 0xffff; // NOTE: invalid result
 }
 
 int main(int argc, char const *argv[])
@@ -228,7 +224,7 @@ int main(int argc, char const *argv[])
   uint16_t line = 0;
   while(p_has_more_commands(f)) {
     p_advance(f, command_buf);
-    printf("%d: %s\n", line, command_buf);
+    if (command_buf[0] == 0) { continue; }
 
     Command c = p_commandType(command_buf);
     switch(c) {
@@ -248,48 +244,48 @@ int main(int argc, char const *argv[])
     }
   }
 
-  for(int i = 0; i < MAX_VAR; ++i) {
-    if (symbol_table[i][0] == 0) { break; }
-    printf("%d: %s: 0x%x\n", i, symbol_table[i], address_table[i]);
-  }
-
-  return 1;
   // NOTE: PASS 2
   rewind(f);
   FILE* fo = fopen("program.hack", "wb");
   while(p_has_more_commands(f)) { // PERF: <FILE> functions already can detect this
     p_advance(f, command_buf); // PERF: better to read all at once
-    printf("%s\t\t", command_buf);
-    if (p_commandType(command_buf) == A_COMMAND) { // PERF: parse command in one go instead of three functions
-      p_symbol(command_buf, symbol_buf);
-      printf("symbol: %s\t", symbol_buf); //
+    if (command_buf[0] == 0) { continue; }
 
-      uint16_t word = strtol(symbol_buf, NULL, 10);
-      writebits(word & 0x7fff, 16, fo);
-    } else if (p_commandType(command_buf) == C_COMMAND) {
-      p_dest(command_buf, dest_buf);
-      if (strlen(dest_buf) > 0) {
-        printf("dest: %s:", dest_buf);
-        printbits8(c_dest(dest_buf));
-        printf("\t");
-      }
-      p_comp(command_buf, comp_buf);
-      if (strlen(comp_buf) > 0) {
-        printf("comp: %s:", comp_buf);
-        printbits8(c_comp(comp_buf));
-        printf("\t");
-      }
-      p_jump(command_buf, jump_buf);
-      if (strlen(jump_buf) > 0) {
-        printf("jump: %s:", jump_buf);
-        printbits8(c_jump(jump_buf));
-        printf("\t");
-      }
+    Command c = p_commandType(command_buf);
+    switch(c) {
+      case(A_COMMAND): {
+        p_symbol(command_buf, symbol_buf);
 
-      uint16_t word = 0xe000 | (c_comp(comp_buf) << 6) |(c_dest(dest_buf) << 3) | c_jump(jump_buf);
-      writebits(word, 16, fo);
+        uint16_t word = 0;
+        if (symbol_buf[0] > '9') { // replace var
+          uint16_t address = s_get_address(symbol_buf);
+          if (address < 0xffff) {
+            word = address;
+          } else {
+            s_add_entry(symbol_buf, address_p);
+            word = address_p;
+            ++address_p;
+          }
+        } else {
+          word = strtol(symbol_buf, NULL, 10);
+        }
+        writebits(word & 0x7fff, 16, fo);
+        break;
+      }
+      case(C_COMMAND): { // PERF: parse command in one go instead of three functions
+        p_dest(command_buf, dest_buf);
+        p_comp(command_buf, comp_buf);
+        p_jump(command_buf, jump_buf);
+
+        uint16_t word = 0xe000 | (c_comp(comp_buf) << 6) |(c_dest(dest_buf) << 3) | c_jump(jump_buf);
+        writebits(word, 16, fo);
+        break;
+      }
+      case(L_COMMAND): {
+        // NOTE: do nothing
+      }
     }
-    printf("\n");
   }
+
   return 0;
 }
