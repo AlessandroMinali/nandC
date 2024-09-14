@@ -1,5 +1,4 @@
 // a 16-bit computer defined with just NAND and DFF
-
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -251,51 +250,51 @@ typedef struct {
 } RAM64;
 uint16_t ram64(uint16_t a, bool l, uint8_t s6, RAM64 *d) {
   uint16_t o[8] = {0};
-  DMUX8 l8 = dmux8way(l, s6);
+  DMUX8 l8 = dmux8way(l, get_bits(s6, 3, 5));
   for(uint8_t i = 0; i < 8; ++i) {
-    o[i] = ram8(a, l8.arg[i], get_bits(s6, 3, 5), (RAM8 *) &(*d) + i);
+    o[i] = ram8(a, l8.arg[i], s6, (RAM8 *) &(*d) + i);
   }
 
-  return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], s6);
+  return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], get_bits(s6, 3, 5));
 }
 
 typedef struct {
   RAM64 d[8];
 } RAM512;
-uint16_t ram512(uint16_t a, bool l, uint8_t s9, RAM512 *d) {
+uint16_t ram512(uint16_t a, bool l, uint16_t s9, RAM512 *d) {
   uint16_t o[8] = {0};
-  DMUX8 l8 = dmux8way(l, s9);
+  DMUX8 l8 = dmux8way(l, get_bits(s9, 6, 8));
   for(uint8_t i = 0; i < 8; ++i) {
-    o[i] = ram64(a, l8.arg[i], get_bits(s9, 3, 8), (RAM64 *) &(*d) + i);
+    o[i] = ram64(a, l8.arg[i], s9, (RAM64 *) &(*d) + i);
   }
 
-  return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], s9);
+  return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], get_bits(s9, 6, 8));
 }
 
 typedef struct {
   RAM512 d[8];
 } RAM4K;
-uint16_t ram4K(uint16_t a, bool l, uint8_t s12, RAM4K *d) {
+uint16_t ram4k(uint16_t a, bool l, uint16_t s12, RAM4K *d) {
   uint16_t o[8] = {0};
-  DMUX8 l8 = dmux8way(l, s12);
+  DMUX8 l8 = dmux8way(l, get_bits(s12, 9, 11));
   for(uint8_t i = 0; i < 8; ++i) {
-    o[i] = ram512(a, l8.arg[i], get_bits(s12, 3, 11), (RAM512 *) &(*d) + i);
+    o[i] = ram512(a, l8.arg[i], s12, (RAM512 *) &(*d) + i);
   }
 
-  return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], s12);
+  return mux8way16(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], get_bits(s12, 9, 11));
 }
 
 typedef struct {
   RAM4K d[4];
 } RAM16K;
-uint16_t ram16K(uint16_t a, bool l, uint8_t s14, RAM16K *d) {
+uint16_t ram16k(uint16_t a, bool l, uint16_t s14, RAM16K *d) {
   uint16_t o[4] = {0};
-  DMUX4 l4 = dmux4way(l, s14);
+  DMUX4 l4 = dmux4way(l, get_bits(s14, 11, 13));
   for(uint8_t i = 0; i < 4; ++i) {
-    o[i] = ram4K(a, l4.arg[i], get_bits(s14, 2, 13), (RAM4K *) &(*d) + i);
+    o[i] = ram4k(a, l4.arg[i], s14, (RAM4K *) &(*d) + i);
   }
 
-  return mux4way16(o[0], o[1], o[2], o[3], s14);
+  return mux4way16(o[0], o[1], o[2], o[3], get_bits(s14, 11, 13));
 }
 
 uint16_t pc(uint16_t in, bool reset, bool load, bool inc, REG16 *r) {
@@ -307,8 +306,8 @@ uint16_t pc(uint16_t in, bool reset, bool load, bool inc, REG16 *r) {
 
 uint16_t memory(uint16_t a, bool l, uint16_t s15, RAM16K *m, RAM16K *s, REG16 *k) {
   DMUX4 d = dmux4way(l, get_bits(s15, 13, 14));
-  uint16_t mout = ram16K(a, or(d.a, d.b), s15, m);
-  uint16_t sout = ram16K(a, d.c, s15, s);
+  uint16_t mout = ram16k(a, or(d.a, d.b), s15, m);
+  uint16_t sout = ram16k(a, d.c, s15, s);
   uint16_t kout = reg(0, 0, k);
   return mux4way16(mout, mout, sout, kout, get_bits(s15, 13, 14));
 }
@@ -363,24 +362,8 @@ CPU cpu(uint16_t a, uint16_t ins, bool r, REG16 *a_reg, REG16 *d_reg, REG16 *pc_
 }
 
 void computer(bool r, RAM16K *instruction, RAM16K *m, RAM16K *s, REG16 *k, REG16 *a_reg, REG16 *d_reg, REG16 *pc_reg) {
-  uint16_t ins = ram16K(0, 0, reg(0, 0, pc_reg), instruction);
+  uint16_t ins = ram16k(0, 0, reg(0, 0, pc_reg), instruction);
   uint16_t inM = memory(0, 0, 0, m, s, k);
   CPU c = cpu(inM, ins, r, a_reg, d_reg, pc_reg);
   memory(c.outM, c.writeM, c.addressM, m, s, k);
-}
-
-// TODO: test memory, cpu, computer, and the rest(?)
-// TODO: print memory maps in hex(registers:a, d, pc; and ram: row of eight 16-bit cells;)
-
-int main() {
-  RAM16K instruction = {0};
-  RAM16K data = {0};
-  RAM16K screen = {0};
-  REG16 keyboard = {0};
-  REG16 a = {0};
-  REG16 d = {0};
-  REG16 _pc = {0};
-  computer(0, &instruction, &data, &screen, &keyboard, &a, &d, &_pc);
-
-  return 0;
 }
