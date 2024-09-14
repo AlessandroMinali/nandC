@@ -1,6 +1,6 @@
 # NAND2C
 
-Following the classic computer building course [nand2tetris](https://www.nand2tetris.org) with pure software implementation that emulates the gates all the way down to NAND!
+Following the classic computer building course [nand2tetris](https://www.nand2tetris.org) with a pure software implementation that emulates the gates all the way down to NAND!
 
 Everything is built on these two "gates" implemented in C:
 ```c
