@@ -289,12 +289,12 @@ typedef struct {
 } RAM16K;
 uint16_t ram16k(uint16_t a, bool l, uint16_t s14, RAM16K *d) {
   uint16_t o[4] = {0};
-  DMUX4 l4 = dmux4way(l, get_bits(s14, 11, 13));
+  DMUX4 l4 = dmux4way(l, get_bits(s14, 12, 13));
   for(uint8_t i = 0; i < 4; ++i) {
     o[i] = ram4k(a, l4.arg[i], s14, (RAM4K *) &(*d) + i);
   }
 
-  return mux4way16(o[0], o[1], o[2], o[3], get_bits(s14, 11, 13));
+  return mux4way16(o[0], o[1], o[2], o[3], get_bits(s14, 12, 13));
 }
 
 uint16_t pc(uint16_t in, bool reset, bool load, bool inc, REG16 *r) {
@@ -355,7 +355,7 @@ CPU cpu(uint16_t a, uint16_t ins, bool r, REG16 *a_reg, REG16 *d_reg, REG16 *pc_
   reg(aluout.out, loadd, d_reg);
 
   c.outM = aluout.out;
-  c.writeM = and(ins15, and(not(get_bit(ins, 12)), get_bit(ins, 3)));
+  c.writeM = and(ins15, get_bit(ins, 3));
   c.addressM = acur;
 
   return c;
@@ -363,7 +363,7 @@ CPU cpu(uint16_t a, uint16_t ins, bool r, REG16 *a_reg, REG16 *d_reg, REG16 *pc_
 
 void computer(bool r, RAM16K *instruction, RAM16K *m, RAM16K *s, REG16 *k, REG16 *a_reg, REG16 *d_reg, REG16 *pc_reg) {
   uint16_t ins = ram16k(0, 0, reg(0, 0, pc_reg), instruction);
-  uint16_t inM = memory(0, 0, 0, m, s, k);
+  uint16_t inM = memory(0, 0, reg(0, 0, a_reg), m, s, k);
   CPU c = cpu(inM, ins, r, a_reg, d_reg, pc_reg);
   memory(c.outM, c.writeM, c.addressM, m, s, k);
 }
