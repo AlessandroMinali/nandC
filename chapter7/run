@@ -1,0 +1,3 @@
+clang vm.c && ./a.out simple_add.vm &&
+cp ../chapter6/assembler.c . && clang assembler.c && rm assembler.c && ./a.out program.asm &&
+cp ../hack.c . && cp ../gate.h . && clang -O2 hack.c && rm hack.c gate.h && ./a.out program.hack

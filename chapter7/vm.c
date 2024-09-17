@@ -120,7 +120,7 @@ void cw_write_push_pop(char *buf, char segment[ARG_SZ], char index[ARG_SZ], FILE
   else if (strcmp("temp", segment) == 0)     { base = "5"; fixed = true; }
   else if (strcmp("constant", segment) == 0) { base = "0"; constant = true; }
 
-  else if (strcmp("static", segment) == 0) { base = argv[1]; }
+  // else if (strcmp("static", segment) == 0) { base = argv[1]; }
   // TODO: push static = @Xxx.3; D=M; then push D onto stack
   else {
     printf("invalid base");

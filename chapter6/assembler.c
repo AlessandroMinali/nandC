@@ -175,7 +175,7 @@ uint16_t symbol_p = 0x0;
 uint16_t address_p = 0x10;
 void s_add_entry(char *symbol, uint16_t address) {
   uint8_t i = 0;
-  uint8_t end = strlen(symbol)
+  uint8_t end = strlen(symbol);
   for(; i < MAX_SZ - 1 && i < end; ++i) {
     symbol_table[symbol_p][i] = symbol[i];
   }
