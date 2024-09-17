@@ -1,5 +1,6 @@
 // only parses valid Hack programs
-// almost no error checking
+// rote implementation from "The Elements of Computing Systems" text
+// almost no error checking or considerations to optimization
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
@@ -28,7 +29,7 @@ void p_advance(FILE* f, char *buf) {
   char *s = tmp;
   while(*s != '\0' && *s != '\n') {
     if (*s == '/') { break; } // ignore comments
-    if (*s != ' ') { // skip spaces
+    if (*s != ' ' && *s != '\t') { // skip spaces
       buf[index++] = *s;
     }
     ++s;
@@ -64,7 +65,8 @@ void p_symbol(char *buf, char out[MAX_SZ]) {
 void p_dest(char *buf, char out[4]) {
   uint8_t i = 0;
   uint8_t end = 0;
-  for(; i < strlen(buf); ++i) {
+  uint8_t len = strlen(buf);
+  for(; i < len; ++i) {
     if (buf[i] == '=') { end = i; break; }
   }
   for(i = 0; i < 3 && i < end; ++i) {
@@ -103,7 +105,8 @@ void p_jump(char *buf, char out[4]) {
 // NOTE: allow any order
 uint8_t c_dest(char buf[4]) {
   uint8_t bits = 0;
-  for(uint8_t i = 0; i < strlen(buf); ++i) {
+  uint8_t end = strlen(buf);
+  for(uint8_t i = 0; i < end; ++i) {
     switch(buf[i]) {
       case('M'): {
         bits |= 0x1;
@@ -172,14 +175,15 @@ uint16_t symbol_p = 0x0;
 uint16_t address_p = 0x10;
 void s_add_entry(char *symbol, uint16_t address) {
   uint8_t i = 0;
-  for(; i < MAX_SZ - 1 && i < strlen(symbol); ++i) {
+  uint8_t end = strlen(symbol)
+  for(; i < MAX_SZ - 1 && i < end; ++i) {
     symbol_table[symbol_p][i] = symbol[i];
   }
   symbol_table[symbol_p][i] = '\0';
   address_table[symbol_p] = address;
   ++symbol_p;
 }
-// bool s_contains(char *symbol) {} // PERF: collapsed into following function
+// bool s_contains(char *symbol) {} // NOTE: collapsed into following function
 uint16_t s_get_address(char *symbol) {
   for(uint16_t i = 0; i < MAX_VAR; ++i) {
     if (strncmp(symbol, symbol_table[i], MAX_SZ) == 0) { return address_table[i]; }
@@ -247,8 +251,8 @@ int main(int argc, char const *argv[])
   // NOTE: PASS 2
   rewind(f);
   FILE* fo = fopen("program.hack", "wb");
-  while(p_has_more_commands(f)) { // PERF: <FILE> functions already can detect this
-    p_advance(f, command_buf); // PERF: better to read all at once
+  while(p_has_more_commands(f)) {
+    p_advance(f, command_buf);
     if (command_buf[0] == 0) { continue; }
 
     Command c = p_commandType(command_buf);
@@ -272,7 +276,7 @@ int main(int argc, char const *argv[])
         writebits(word & 0x7fff, 16, fo);
         break;
       }
-      case(C_COMMAND): { // PERF: parse command in one go instead of three functions
+      case(C_COMMAND): {
         p_dest(command_buf, dest_buf);
         p_comp(command_buf, comp_buf);
         p_jump(command_buf, jump_buf);

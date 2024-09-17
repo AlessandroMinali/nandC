@@ -1,11 +1,10 @@
-// TODO: keyboard input, screen output
+// TODO: keyboard in, screen output via SDL
 
-#include<unistd.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include "gate.h"
 
-char buf[17] = {0}; // for printing
-
+static char buf[17] = {0};
 void load_program(char *filename, RAM16K *instructions) {
   FILE *f = fopen(filename, "r");
   char buf[18] = {0};
@@ -15,7 +14,6 @@ void load_program(char *filename, RAM16K *instructions) {
     ++i;
   }
 }
-
 bool print16(REG16 r) {
   bool out = false;
   for(int i = 15; i >= 0; i--) {
@@ -28,12 +26,10 @@ bool print16(REG16 r) {
   }
   return out;
 }
-
 void printreg16(REG16 d, char *name) {
   print16(d);
   printf("%2s: %-10ld", name, strtol(buf, NULL, 2));
 }
-
 void printram16k(RAM16K d) {
   for(uint8_t i = 0; i < 4; ++i) {
     for(uint8_t j = 0; j < 8; ++j) {
@@ -49,7 +45,6 @@ void printram16k(RAM16K d) {
     }
   }
 }
-
 void printcomputer(RAM16K data, RAM16K screen, REG16 keyboard, REG16 a, REG16 d, REG16 pc) {
   printf("\e[1;1H\e[2J");
   printreg16(pc, "PC");
@@ -62,10 +57,9 @@ void printcomputer(RAM16K data, RAM16K screen, REG16 keyboard, REG16 a, REG16 d,
   printf("\n");
 }
 
-
-int main() {
+int main(int argc, char **argv) {
   RAM16K instruction = {0};
-  load_program("add.hack", &instruction);
+  load_program(argv[1], &instruction);
 
   RAM16K data = {0};
   RAM16K screen = {0};
@@ -74,7 +68,7 @@ int main() {
   REG16 d = {0};
   REG16 _pc = {0};
 
-  for(int i = 0; i < 100000; ++i) {
+  while(1) {
     computer(0, &instruction, &data, &screen, &keyboard, &a, &d, &_pc);
     printcomputer(data, screen, keyboard, a, d, _pc);
     usleep(100000);
