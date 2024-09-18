@@ -11,13 +11,6 @@
 #define MAX_SZ 64
 #define ARG_SZ 10
 
-// STACK defintion
-// size_t _sp = 0; // NOTE: will wrap on overflow
-// uint16_t _stack[STACK_SZ] = {0};
-// void _push(uint16_t x) { _stack[_sp++] = x; }
-// uint16_t _pop (uint16_t x) { return _stack[--_sp]; }
-// STACK definition END
-
 FILE* p_init(char const *filename) {
   return fopen(filename, "r");
 }
@@ -97,88 +90,126 @@ void p_arg2(char *buf, char out[ARG_SZ]) {
     ++j;
   }
   out[j] = '\0';
+  printf("arg2:%-15s", out);
 }
 
 FILE* cw_init(char const *filename) {
   return fopen(filename, "w");
 }
-// void cw_set_file_name(char const *filename) { } // NOTE: useless?
-void cw_write_arithmetic(char arg[ARG_SZ], FILE *f) {
-  fputs(arg, f);
-  fputs("\n", f);
+char current_file[MAX_SZ] = {0};
+void cw_set_file_name(char const *filename) {
+  for(uint8_t i = 0; i < MAX_SZ - 1; ++i) {
+    if (filename[i] == '.' || filename[i] == '\0') {
+      current_file[i] = '\0';
+      break;
+    }
+    current_file[i] = filename[i];
+  }
+}
+void cw_write_arithmetic(char *buf, FILE *f) {
+  // add, sub, neg, eq, gt, lt, and, or, not
+  //    STACK
+  //      x
+  //      y
+  // sp->  
+  // false = 0xffff, true = 0x0
+  // fputs(arg, f);
+  // fputs("\n", f);
 }
 void cw_write_push_pop(char *buf, char segment[ARG_SZ], char index[ARG_SZ], FILE *f) {
-  char *base;
+  char base[MAX_SZ];
   bool constant = false;
-  bool fixed = false;
-  if (strcmp("argument", segment) == 0)      { base = "ARG"; }
-  else if (strcmp("local", segment) == 0)    { base = "LCL"; }
-  else if (strcmp("this", segment) == 0)     { base = "THIS"; }
-  else if (strcmp("that", segment) == 0)     { base = "THAT"; }
+  bool fixed    = false;
+  bool _static  = false;
+  if (strcmp("argument", segment) == 0)      { strcpy(base, "ARG"); }
+  else if (strcmp("local", segment) == 0)    { strcpy(base, "LCL"); }
+  else if (strcmp("this", segment) == 0)     { strcpy(base, "THIS"); }
+  else if (strcmp("that", segment) == 0)     { strcpy(base, "THAT"); }
 
-  else if (strcmp("pointer", segment) == 0)  { base = "THIS"; fixed = true; }
-  else if (strcmp("temp", segment) == 0)     { base = "5"; fixed = true; }
-  else if (strcmp("constant", segment) == 0) { base = "0"; constant = true; }
+  else if (strcmp("pointer", segment) == 0)  { strcpy(base, "THIS"); fixed = true; }
+  else if (strcmp("temp", segment) == 0)     { strcpy(base, "5");    fixed = true; }
+  else if (strcmp("constant", segment) == 0) { strcpy(base, "0");    fixed = true; constant = true; }
 
-  // else if (strcmp("static", segment) == 0) { base = argv[1]; }
-  // TODO: push static = @Xxx.3; D=M; then push D onto stack
+  else if (strcmp("static", segment) == 0) {
+    _static = true;
+    uint8_t len = strlen(current_file);
+    uint8_t tag_len = strlen(index);
+    if (len + tag_len + 1 > MAX_SZ - 1) {
+      printf("static name too long");
+      exit(1);
+    }
+    strncpy(base, current_file, MAX_SZ);
+    uint8_t i = len;
+    uint8_t j = 0;
+    base[i++] = '.';
+    for(; len < MAX_SZ && j < tag_len; ++i, ++j) {
+      base[i] = index[j];
+    }
+    base[i] = '\0'; // @${filename}.${index}
+  }
   else {
     printf("invalid base");
     exit(1);
   }
 
-// @R13 = stack + sp
-// @R14 = seg + i
-  char *stack_pos =
-"@256\n\
-D=A\n\
-@SP\n\
-D=D+M\n\
-@R13\n\
-M=D\n";
-
-  char *seg_index =
-"@%s\n\
-D=%s\n\
-@%s\n\
-D=D+A\n\
-@R14\n\
-M=D\n";
-
   char *push =
-"@R14\n\
+"@%s\n\
+D=%c\n\
+@%s\n\
+AD=D+A\n\
 %s\
-D=M\n\
-@R13\n\
+@SP\n\
 A=M\n\
-M=D\n";
+M=D\n\
+@SP\n\
+M=M+1\n";
+
+  char *push_static =
+"@%s\n\
+D=M\n\
+@SP\n\
+A=M\n\
+M=D\n\
+@SP\n\
+M=M+1\n";
 
   char *pop =
-"@R13\n\
-A=M\n\
+"@%s\n\
+D=%c\n\
+@%s\n\
+AD=D+A\n\
+@R13\n\
+M=D\n\
+@SP\n\
+AM=M-1\n\
 D=M\n\
-@R14\n\
+@R13\n\
 A=M\n\
 M=D\n";
 
-  char *stack_inc =
+char *pop_static =
 "@SP\n\
-M=M+1\n";
-  char *stack_dec =
-"@SP\n\
-M=M-1\n";
+AM=M-1\n\
+D=M\n\
+@%s\n\
+M=D\n";
 
-  fprintf(f, seg_index, base, fixed ? "A" : "M", index);
   switch(current_command) {
     case(C_PUSH): {
-      fprintf(f, "%s", stack_pos);
-      fprintf(f, push, constant ? "": "A=M\n");
-      fprintf(f, "%s", stack_inc);
+      if(_static){
+        fprintf(f, push_static, base);
+      } else {
+        fprintf(f, push, base, fixed ? 'A' : 'M', index, constant ? "" : "D=M\n");
+      }
       break;
     }
     case(C_POP): {
-      fprintf(f, "%s%s%s", stack_dec, stack_pos, constant ? "" : pop);
-      // NOTE: fall-through
+      if(_static){
+        fprintf(f, pop_static, base);
+      } else {
+        fprintf(f, pop, base, fixed ? 'A' : 'M', index);
+      }
+      break;
     }
     default:
       ; // NOTE: do nothing
@@ -189,8 +220,11 @@ int main(int argc, char **argv) {
   char arg1_buf[ARG_SZ] = {0};
   char arg2_buf[ARG_SZ] = {0};
 
-  FILE* f = p_init(argv[1]);
-  FILE* fo = cw_init("program.asm");
+  FILE* f = p_init(argv[1]); // TODO: loop through files in a DIR
+  cw_set_file_name(argv[1]);
+
+  FILE* fo = cw_init("program.asm"); // TODO: variable based on current_filename
+  fprintf(fo, "%s", "@256\nD=A\n@SP\nM=D\n"); // TODO: better @SP init
   while(p_has_more_commands(f)) {
     p_advance(f, command_buf);
     if (command_buf[0] == 0) { continue; }
