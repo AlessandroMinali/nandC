@@ -7,8 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define STACK_SZ 256
-#define MAX_SZ 64
+#define MAX_SZ 256 // max length per line of the program
 #define ARG_SZ 10
 
 FILE* p_init(char const *filename) {
@@ -106,17 +105,60 @@ void cw_set_file_name(char const *filename) {
     current_file[i] = filename[i];
   }
 }
-void cw_write_arithmetic(char *buf, FILE *f) {
-  // add, sub, neg, eq, gt, lt, and, or, not
-  //    STACK
-  //      x
-  //      y
-  // sp->  
-  // false = 0xffff, true = 0x0
-  // fputs(arg, f);
-  // fputs("\n", f);
+int lbl = 0;
+void cw_write_arithmetic(char *func, FILE *f) {
+  char *op =
+"@SP\n\
+AM=M-1\n\
+D=M\n\
+@SP\n\
+AM=M-1\n\
+MD=%s\n\
+@SP\n\
+M=M+1\n";
+  char *neg =
+"@SP\n\
+AM=M-1\n\
+M=%cM\n\
+@SP\n\
+M=M+1\n";
+  char *boolean =
+"@SP\n\
+AM=M-1\n\
+D=M\n\
+@SP\n\
+AM=M-1\n\
+D=M-D\n\
+@___b_j%d\n\
+D;J%s\n\
+@SP\n\
+A=M\n\
+M=0\n"            // true = 0xffff
+"@___b_j_e%d\n\
+0;JMP\n\
+(___b_j%d)\n\
+@SP\n\
+A=M\n\
+M=-1\n"           // false = 0x0
+"(___b_j_e%d)\n\
+@SP\n\
+M=M+1\n";
+
+  if (strncmp("add", func, 3) == 0)      fprintf(f, op, "D+M");
+  else if (strncmp("sub", func, 3) == 0) fprintf(f, op, "M-D");
+  else if (strncmp("neg", func, 3) == 0) fprintf(f, neg, '-');
+  else if (strncmp("eq", func, 2) == 0)  { fprintf(f, boolean, lbl, "EQ", lbl, lbl, lbl); ++lbl; }
+  else if (strncmp("gt", func, 2) == 0)  { fprintf(f, boolean, lbl, "GT", lbl, lbl, lbl); ++lbl; }
+  else if (strncmp("lt", func, 2) == 0)  { fprintf(f, boolean, lbl, "LT", lbl, lbl, lbl); ++lbl; }
+  else if (strncmp("and", func, 3) == 0) fprintf(f, op, "D&M");
+  else if (strncmp("or", func, 2) == 0)  fprintf(f, op, "D|M");
+  else if (strncmp("not", func, 3) == 0) fprintf(f, neg, '!');
+  else {
+    printf("invalid arthimetic: %s\n", func);
+    exit(1);
+  }
 }
-void cw_write_push_pop(char *buf, char segment[ARG_SZ], char index[ARG_SZ], FILE *f) {
+void cw_write_push_pop(char segment[ARG_SZ], char index[ARG_SZ], FILE *f) {
   char base[MAX_SZ];
   bool constant = false;
   bool fixed    = false;
@@ -132,14 +174,14 @@ void cw_write_push_pop(char *buf, char segment[ARG_SZ], char index[ARG_SZ], FILE
 
   else if (strcmp("static", segment) == 0) {
     _static = true;
-    uint8_t len = strlen(current_file);
+    uint16_t len = strlen(current_file);
     uint8_t tag_len = strlen(index);
-    if (len + tag_len + 1 > MAX_SZ - 1) {
-      printf("static name too long");
+    if (len + tag_len + 2 > MAX_SZ - 1) {
+      printf("static name too long\n");
       exit(1);
     }
     strncpy(base, current_file, MAX_SZ);
-    uint8_t i = len;
+    uint16_t i = len;
     uint8_t j = 0;
     base[i++] = '.';
     for(; len < MAX_SZ && j < tag_len; ++i, ++j) {
@@ -148,7 +190,7 @@ void cw_write_push_pop(char *buf, char segment[ARG_SZ], char index[ARG_SZ], FILE
     base[i] = '\0'; // @${filename}.${index}
   }
   else {
-    printf("invalid base");
+    printf("invalid base: %s", segment);
     exit(1);
   }
 
@@ -232,14 +274,19 @@ int main(int argc, char **argv) {
 
     printf("c:%-20st:%-15s", command_buf, commands[current_command]);
     if (current_command != C_RETURN) {
+
       p_arg1(command_buf, arg1_buf);
       printf("arg1:%-15s", arg1_buf);
     }
+
     switch(current_command) {
+      case(C_ARITHMETIC):
+        cw_write_arithmetic(arg1_buf, fo);
+        break;
       case(C_PUSH):
       case(C_POP):
         p_arg2(command_buf, arg2_buf);
-        cw_write_push_pop(command_buf, arg1_buf, arg2_buf, fo);
+        cw_write_push_pop(arg1_buf, arg2_buf, fo);
         break;
       case(C_FUNCTION):
       case(C_CALL): {
@@ -249,6 +296,7 @@ int main(int argc, char **argv) {
       default:
         ;// NOTE: do nothing
     }
+
     printf("\n");
   }
   return 0;

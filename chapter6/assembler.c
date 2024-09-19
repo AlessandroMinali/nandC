@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define MAX_SZ 256   // max length per lines of the program
+#define MAX_SZ 256   // max length per line of the program
 #define MAX_VAR 1024 // max numbers of variables allowed per program
 
 static inline void writebits(uint16_t v, uint8_t sz, FILE *f) {
@@ -155,7 +155,8 @@ uint8_t c_comp(char buf[4]) {
   if (strncmp("M-1", buf, sz) == 0) { return 0x72; }
   if (strncmp("-M", buf, sz) == 0) { return 0x73; }
   if (strncmp("M+1", buf, sz) == 0) { return 0x77; }
-  return 0xff; // NOTE: error
+  printf("invalid command: %s\n", buf);
+  exit(1);
 }
 uint8_t c_jump(char buf[4]) {
   uint8_t sz = 3;
@@ -188,7 +189,8 @@ uint16_t s_get_address(char *symbol) {
   for(uint16_t i = 0; i < MAX_VAR; ++i) {
     if (strncmp(symbol, symbol_table[i], MAX_SZ) == 0) { return address_table[i]; }
   }
-  return 0xffff; // NOTE: invalid result
+  printf("invalid address: %s\n", symbol);
+  exit(1);
 }
 
 int main(int argc, char const *argv[])

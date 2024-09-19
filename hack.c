@@ -28,7 +28,7 @@ bool print16(REG16 r) {
 }
 void printreg16(REG16 d, char *name) {
   print16(d);
-  printf("%2s: %-10ld", name, strtol(buf, NULL, 2));
+  printf("%2s: %-10hd", name, (int16_t) strtol(buf, NULL, 2));
 }
 void printram16k(RAM16K d) {
   for(uint8_t i = 0; i < 4; ++i) {
@@ -37,7 +37,7 @@ void printram16k(RAM16K d) {
         for(uint8_t l = 0; l < 8; ++l) {
           for(uint8_t m = 0; m < 8; ++m) {
             if (print16(d.d[i].d[j].d[k].d[l].d[m])) {
-              printf("0x%04x: %-10ld", i*4096+j*512+k*64+l*8+m, strtol(buf, NULL, 2));
+              printf("% 4d: %-10hd", i*4096+j*512+k*64+l*8+m, (int16_t) strtol(buf, NULL, 2));
             }
           }
         }
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
   while(1) {
     computer(0, &instruction, &data, &screen, &keyboard, &a, &d, &_pc);
     printcomputer(data, screen, keyboard, a, d, _pc);
-    usleep(100000);
+    // usleep(0);
   }
 
   return 0;
