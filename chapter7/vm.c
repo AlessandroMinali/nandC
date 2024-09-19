@@ -266,7 +266,8 @@ int main(int argc, char **argv) {
   cw_set_file_name(argv[1]);
 
   FILE* fo = cw_init("program.asm"); // TODO: variable based on current_filename
-  fprintf(fo, "%s", "@256\nD=A\n@SP\nM=D\n"); // TODO: better @SP init
+  // NOTE: set base addresses for: SP, LCL, ARG, THIS, THAT
+  fprintf(fo, "%s", "@256\nD=A\n@SP\nM=D\n@300\nD=A\n@LCL\nM=D\n@400\nD=A\n@ARG\nM=D\n@3000\nD=A\n@THIS\nM=D\n@3010\nD=A\n@THAT\nM=D\n");
   while(p_has_more_commands(f)) {
     p_advance(f, command_buf);
     if (command_buf[0] == 0) { continue; }
@@ -291,7 +292,7 @@ int main(int argc, char **argv) {
       case(C_FUNCTION):
       case(C_CALL): {
         p_arg2(command_buf, arg2_buf);
-        // NOTE: fall-through
+        break;
       }
       default:
         ;// NOTE: do nothing

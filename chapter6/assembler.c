@@ -189,8 +189,7 @@ uint16_t s_get_address(char *symbol) {
   for(uint16_t i = 0; i < MAX_VAR; ++i) {
     if (strncmp(symbol, symbol_table[i], MAX_SZ) == 0) { return address_table[i]; }
   }
-  printf("invalid address: %s\n", symbol);
-  exit(1);
+  return 0xffff; // NOTE: special value return used later in processing!!!
 }
 
 int main(int argc, char const *argv[])
