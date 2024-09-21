@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
   while(1) {
     computer(0, &instruction, &data, &screen, &keyboard, &a, &d, &_pc);
     printcomputer(data, screen, keyboard, a, d, _pc);
-    // usleep(0);
+    usleep(1000);
   }
 
   return 0;

@@ -262,7 +262,7 @@ int main(int argc, char const *argv[])
         p_symbol(command_buf, symbol_buf);
 
         uint16_t word = 0;
-        if (symbol_buf[0] > '9') { // replace var
+        if (symbol_buf[0] < '0' || symbol_buf[0] > '9') { // replace var
           uint16_t address = s_get_address(symbol_buf);
           if (address < 0xffff) {
             word = address;

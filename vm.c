@@ -7,8 +7,20 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define MAX_SZ 256 // max length per line of the program
+#define MAX_SZ 256 // max length per line of the program incl nul-term
+#define MAX_NAME_SZ 128 // max length for label names incl nul-term
 #define ARG_SZ 10
+
+// GLOBALS
+typedef enum { C_ARITHMETIC, C_PUSH, C_POP, C_LABEL, C_GOTO, C_IF, C_FUNCTION, C_RETURN, C_CALL, } Command;
+char *commands[] = { "C_ARITHMETIC", "C_PUSH", "C_POP", "C_LABEL", "C_GOTO", "C_IF", "C_FUNCTION", "C_RETURN", "C_CALL" };
+
+static char current_file[MAX_NAME_SZ] = {0};     // file being processed
+static Command current_command = -1;             // command being processed
+static char current_function[MAX_NAME_SZ] = {0}; // function being processed
+
+static int lbl = 0; // auto-incremented key for vm impl jmp labels
+// GLOBAL end
 
 FILE* p_init(char const *filename) {
   return fopen(filename, "r");
@@ -33,10 +45,7 @@ void p_advance(FILE* f, char *buf) {
   }
   buf[index] = '\0';
 }
-typedef enum { C_ARITHMETIC, C_PUSH, C_POP, C_LABEL, C_GOTO, C_IF, C_FUNCTION, C_RETURN, C_CALL, } Command;
-char *commands[] = { "C_ARITHMETIC", "C_PUSH", "C_POP", "C_LABEL", "C_GOTO", "C_IF", "C_FUNCTION", "C_RETURN", "C_CALL" };
-Command current_command = -1;
-void p_commandtype(char *buf) {
+void p_command_type(char *buf) {
   current_command = 
   strncmp(buf, "add", 3) == 0 ? C_ARITHMETIC :
   strncmp(buf, "sub", 3) == 0 ? C_ARITHMETIC :
@@ -57,7 +66,6 @@ void p_commandtype(char *buf) {
   strncmp(buf, "call", 4) == 0 ? C_CALL :
   -1;
 }
-
 void p_arg1(char *buf, char out[ARG_SZ]) {
   size_t start = 0;
   size_t end   = 0;
@@ -76,13 +84,12 @@ void p_arg1(char *buf, char out[ARG_SZ]) {
   }
   out[j] = '\0';
 }
-
 void p_arg2(char *buf, char out[ARG_SZ]) {
   size_t init  = strcspn(buf, " \t");
   size_t start = strspn(&buf[init], " \t") + init;
   size_t arg1  = strcspn(&buf[start], " \t") + start;
   size_t arg2  = strspn(&buf[arg1], " \t") + arg1;
-  size_t end = strlen(buf);
+  size_t end = strcspn(&buf[arg2], " \t") + arg2;
   uint8_t j = 0;
   for(uint8_t i = arg2; i < end; ++i) {
     out[j] = buf[i];
@@ -95,9 +102,8 @@ void p_arg2(char *buf, char out[ARG_SZ]) {
 FILE* cw_init(char const *filename) {
   return fopen(filename, "w");
 }
-char current_file[MAX_SZ] = {0};
 void cw_set_file_name(char const *filename) {
-  for(uint8_t i = 0; i < MAX_SZ - 1; ++i) {
+  for(uint8_t i = 0; i < MAX_NAME_SZ - 1; ++i) {
     if (filename[i] == '.' || filename[i] == '\0') {
       current_file[i] = '\0';
       break;
@@ -105,7 +111,6 @@ void cw_set_file_name(char const *filename) {
     current_file[i] = filename[i];
   }
 }
-int lbl = 0;
 void cw_write_arithmetic(char *func, FILE *f) {
   char *op =
 "@SP\n\
@@ -176,11 +181,11 @@ void cw_write_push_pop(char segment[ARG_SZ], char index[ARG_SZ], FILE *f) {
     _static = true;
     uint16_t len = strlen(current_file);
     uint8_t tag_len = strlen(index);
-    if (len + tag_len + 2 > MAX_SZ - 1) {
+    if (len + tag_len + 2 > MAX_NAME_SZ - 1) {
       printf("static name too long\n");
       exit(1);
     }
-    strncpy(base, current_file, MAX_SZ);
+    strncpy(base, current_file, MAX_NAME_SZ);
     uint16_t i = len;
     uint8_t j = 0;
     base[i++] = '.';
@@ -198,8 +203,8 @@ void cw_write_push_pop(char segment[ARG_SZ], char index[ARG_SZ], FILE *f) {
 "@%s\n\
 D=%c\n\
 @%s\n\
-AD=D+A\n\
-%s\
+A=D+A\n\
+%s\n\
 @SP\n\
 A=M\n\
 M=D\n\
@@ -241,7 +246,7 @@ M=D\n";
       if(_static){
         fprintf(f, push_static, base);
       } else {
-        fprintf(f, push, base, fixed ? 'A' : 'M', index, constant ? "" : "D=M\n");
+        fprintf(f, push, base, fixed ? 'A' : 'M', index, constant ? "D=A" : "D=M");
       }
       break;
     }
@@ -257,6 +262,22 @@ M=D\n";
       ; // NOTE: do nothing
   }
 }
+void cw_write_init(FILE *f) {
+  fprintf(f, "@256\nD=A\n@SP\nM=D\n");
+  // TODO: add to bootstrap "call Sys.init\n"
+  fprintf(f, "@300\nD=A\n@LCL\nM=D\n@400\nD=A\n@ARG\nM=D\n");//@3000\nD=A\n@THIS\nM=D\n@3010\nD=A\n@THAT\nM=D\n");
+  fprintf(f, "@3\nD=A\n@ARG\nA=M\nM=D\n");
+}
+void cw_write_label(char *label, FILE *f) {
+  fprintf(f, "(%s$%s)\n", current_function, label);
+}
+void cw_write_goto(char *label, FILE *f) {
+  fprintf(f, "@%s$%s\n0;JMP\n", current_function, label);
+}
+void cw_write_if(char *label, FILE *f) {
+  fprintf(f, "@SP\nAM=M-1\nD=M\n@%s$%s\nD;JNE\n", current_function, label);
+}
+
 int main(int argc, char **argv) {
   char command_buf[MAX_SZ] = {0};
   char arg1_buf[ARG_SZ] = {0};
@@ -265,13 +286,12 @@ int main(int argc, char **argv) {
   FILE* f = p_init(argv[1]); // TODO: loop through files in a DIR
   cw_set_file_name(argv[1]);
 
-  FILE* fo = cw_init("program.asm"); // TODO: variable based on current_filename
-  // NOTE: set base addresses for: SP, LCL, ARG, THIS, THAT
-  fprintf(fo, "%s", "@256\nD=A\n@SP\nM=D\n@300\nD=A\n@LCL\nM=D\n@400\nD=A\n@ARG\nM=D\n@3000\nD=A\n@THIS\nM=D\n@3010\nD=A\n@THAT\nM=D\n");
+  FILE* fo = cw_init("program.asm"); // TODO: variable based on current_file
+  cw_write_init(fo);
   while(p_has_more_commands(f)) {
     p_advance(f, command_buf);
     if (command_buf[0] == 0) { continue; }
-    p_commandtype(command_buf);
+    p_command_type(command_buf);
 
     printf("c:%-20st:%-15s", command_buf, commands[current_command]);
     if (current_command != C_RETURN) {
@@ -288,6 +308,15 @@ int main(int argc, char **argv) {
       case(C_POP):
         p_arg2(command_buf, arg2_buf);
         cw_write_push_pop(arg1_buf, arg2_buf, fo);
+        break;
+      case(C_LABEL):
+        cw_write_label(arg1_buf, fo);
+        break;
+      case(C_GOTO):
+        cw_write_goto(arg1_buf, fo);
+        break;
+      case(C_IF):
+        cw_write_if(arg1_buf, fo);
         break;
       case(C_FUNCTION):
       case(C_CALL): {

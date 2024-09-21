@@ -1,3 +1,4 @@
 a.out
 .DS_Store
-*.hack
+program.asm
+program.hack

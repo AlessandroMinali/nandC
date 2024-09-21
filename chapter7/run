@@ -1,3 +1,0 @@
-clang vm.c && ./a.out $1 && echo "vm" &&
-cp ../chapter6/assembler.c . && clang assembler.c && rm assembler.c && ./a.out program.asm && echo "assembler" &&
-cp ../hack.c . && cp ../gate.h . && clang -O2 hack.c && rm hack.c gate.h && ./a.out program.hack
