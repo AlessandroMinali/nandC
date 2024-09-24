@@ -274,7 +274,9 @@ void cw_write_if(char *label, FILE *f) {
   fprintf(f, "@SP\nAM=M-1\nD=M\n@%s$%s\nD;JNE\n", current_function, label);
 }
 void cw_write_call(char *label, char* nargs, FILE *f) {
-  fprintf(f, "@rta.%d\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@LCL\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@ARG\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THIS\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THAT\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@SP\nD=M\n@%s\nD=D-A\n@5\nD=D-A\n@ARG\nM=D\n@SP\nD=M\n@LCL\nM=D\n@%s\n0;JMP\n(rta.%d)\n", rta, strlen(nargs) == 0 ? "0" : nargs, label, rta);
+  fprintf(f, "@%s$ret.%d\n", label, rta);
+  fprintf(f, "D=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@LCL\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@ARG\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THIS\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THAT\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@SP\nD=M\n@%s\nD=D-A\n@5\nD=D-A\n@ARG\nM=D\n@SP\nD=M\n@LCL\nM=D\n@%s\n0;JMP\n", strlen(nargs) == 0 ? "0" : nargs, label);
+  fprintf(f, "(%s$ret.%d)\n", label, rta);
   rta++;
 }
 void cw_write_return(FILE *f) {
