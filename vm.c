@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <dirent.h>
 
 #define MAX_SZ 256 // max length per line of the program incl nul-term
 #define MAX_NAME_SZ 128 // max length for label names incl nul-term
@@ -293,52 +294,77 @@ int main(int argc, char **argv) {
   char arg1_buf[MAX_NAME_SZ] = {0};
   char arg2_buf[MAX_NAME_SZ] = {0};
 
-  FILE* f = p_init(argv[1]); // TODO: loop through files in a DIR
-  cw_set_file_name(argv[1]);
+  char path[MAX_SZ];
+  char fname[MAX_SZ];
+  memcpy(path, argv[1], strlen(argv[1])+1);
 
-  FILE* fo = cw_init("program.asm"); // TODO: variable based on current_file
+  FILE* fo = cw_init("program.asm");
   cw_write_init(fo);
-  while(p_has_more_commands(f)) {
-    p_advance(f, command_buf);
-    if (command_buf[0] == 0) { continue; }
-    p_command_type(command_buf);
 
-    if (current_command != C_RETURN) {
-      p_arg1(command_buf, arg1_buf);
-    }
-
-    switch(current_command) {
-      case(C_ARITHMETIC):
-        cw_write_arithmetic(arg1_buf, fo);
-        break;
-      case(C_PUSH):
-      case(C_POP):
-        p_arg2(command_buf, arg2_buf);
-        cw_write_push_pop(arg1_buf, arg2_buf, fo);
-        break;
-      case(C_LABEL):
-        cw_write_label(arg1_buf, fo);
-        break;
-      case(C_GOTO):
-        cw_write_goto(arg1_buf, fo);
-        break;
-      case(C_IF):
-        cw_write_if(arg1_buf, fo);
-        break;
-      case(C_RETURN):
-        cw_write_return(fo);
-        break;
-      case(C_FUNCTION):
-        p_arg2(command_buf, arg2_buf);
-        cw_write_function(arg1_buf, arg2_buf, fo);
-        break;
-      case(C_CALL): {
-        p_arg2(command_buf, arg2_buf);
-        cw_write_call(arg1_buf, arg2_buf, fo);
-        break;
+  bool once = true;
+  DIR *d = opendir(argv[1]);
+  while(1) {
+    if (d != NULL) {
+      struct dirent *item;
+      while((item = readdir(d))) {
+        size_t sz = strlen(item->d_name);
+        if (item->d_type == DT_REG &&
+            item->d_name[sz-3] == '.' &&
+            item->d_name[sz-2] == 'v' &&
+            item->d_name[sz-1] == 'm') {
+            memcpy(fname, item->d_name, strlen(item->d_name)+1);
+            memcpy(&path[strlen(argv[1])], item->d_name, strlen(item->d_name)+1);
+          break;
+        }
       }
-      default:
-        ;// NOTE: do nothing
+      if (!item) { break; } // traversed entire dir
+    } else if (once) { once = false; }
+    else { break; }
+
+    FILE* f = p_init(path);
+    cw_set_file_name(fname);
+    while(p_has_more_commands(f)) {
+      p_advance(f, command_buf);
+      if (command_buf[0] == 0) { continue; }
+      p_command_type(command_buf);
+
+      if (current_command != C_RETURN) {
+        p_arg1(command_buf, arg1_buf);
+      }
+
+      switch(current_command) {
+        case(C_ARITHMETIC):
+          cw_write_arithmetic(arg1_buf, fo);
+          break;
+        case(C_PUSH):
+        case(C_POP):
+          p_arg2(command_buf, arg2_buf);
+          cw_write_push_pop(arg1_buf, arg2_buf, fo);
+          break;
+        case(C_LABEL):
+          cw_write_label(arg1_buf, fo);
+          break;
+        case(C_GOTO):
+          cw_write_goto(arg1_buf, fo);
+          break;
+        case(C_IF):
+          cw_write_if(arg1_buf, fo);
+          break;
+        case(C_RETURN):
+          cw_write_return(fo);
+          break;
+        case(C_FUNCTION):
+          p_arg2(command_buf, arg2_buf);
+          cw_write_function(arg1_buf, arg2_buf, fo);
+          break;
+        case(C_CALL): {
+          p_arg2(command_buf, arg2_buf);
+          cw_write_call(arg1_buf, arg2_buf, fo);
+          break;
+        }
+        default:
+          ;// NOTE: do nothing
+      }
     }
   }
   return 0;
