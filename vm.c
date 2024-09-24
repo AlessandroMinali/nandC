@@ -20,6 +20,7 @@ static Command current_command = -1;             // command being processed
 static char current_function[MAX_NAME_SZ] = {0}; // function being processed
 
 static int lbl = 0; // auto-incremented key for vm impl jmp labels
+static int rta = 0; // auto-incremented key for vm impl return-address labels
 // GLOBAL end
 
 FILE* p_init(char const *filename) {
@@ -66,7 +67,7 @@ void p_command_type(char *buf) {
   strncmp(buf, "call", 4) == 0 ? C_CALL :
   -1;
 }
-void p_arg1(char *buf, char out[ARG_SZ]) {
+void p_arg1(char *buf, char *out) {
   size_t start = 0;
   size_t end   = 0;
   if (current_command != C_ARITHMETIC) {
@@ -84,7 +85,7 @@ void p_arg1(char *buf, char out[ARG_SZ]) {
   }
   out[j] = '\0';
 }
-void p_arg2(char *buf, char out[ARG_SZ]) {
+void p_arg2(char *buf, char *out) {
   size_t init  = strcspn(buf, " \t");
   size_t start = strspn(&buf[init], " \t") + init;
   size_t arg1  = strcspn(&buf[start], " \t") + start;
@@ -96,7 +97,6 @@ void p_arg2(char *buf, char out[ARG_SZ]) {
     ++j;
   }
   out[j] = '\0';
-  printf("arg2:%-15s", out);
 }
 
 FILE* cw_init(char const *filename) {
@@ -262,12 +262,7 @@ M=D\n";
       ; // NOTE: do nothing
   }
 }
-void cw_write_init(FILE *f) {
-  fprintf(f, "@256\nD=A\n@SP\nM=D\n");
-  // TODO: add to bootstrap "call Sys.init\n"
-  fprintf(f, "@300\nD=A\n@LCL\nM=D\n@400\nD=A\n@ARG\nM=D\n");//@3000\nD=A\n@THIS\nM=D\n@3010\nD=A\n@THAT\nM=D\n");
-  fprintf(f, "@3\nD=A\n@ARG\nA=M\nM=D\n");
-}
+
 void cw_write_label(char *label, FILE *f) {
   fprintf(f, "(%s$%s)\n", current_function, label);
 }
@@ -277,11 +272,26 @@ void cw_write_goto(char *label, FILE *f) {
 void cw_write_if(char *label, FILE *f) {
   fprintf(f, "@SP\nAM=M-1\nD=M\n@%s$%s\nD;JNE\n", current_function, label);
 }
+void cw_write_call(char *label, char* nargs, FILE *f) {
+  fprintf(f, "@rta.%d\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@LCL\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@ARG\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THIS\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@THAT\nD=M\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@SP\nD=M\n@%s\nD=D-A\n@5\nD=D-A\n@ARG\nM=D\n@SP\nD=M\n@LCL\nM=D\n@%s\n0;JMP\n(rta.%d)\n", rta, strlen(nargs) == 0 ? "0" : nargs, label, rta);
+  rta++;
+}
+void cw_write_return(FILE *f) {
+  fprintf(f, "@LCL\nD=M\n@R13\nM=D\n@5\nD=A\n@R13\nA=M-D\nD=M\n@R14\nM=D\n@SP\nAM=M-1\nD=M\n@ARG\nA=M\nM=D\n@ARG\nD=M+1\n@SP\nM=D\n@R13\nAM=M-1\nD=M\n@THAT\nM=D\n@R13\nAM=M-1\nD=M\n@THIS\nM=D\n@R13\nAM=M-1\nD=M\n@ARG\nM=D\n@R13\nAM=M-1\nD=M\n@LCL\nM=D\n@R14\nA=M\n0;JMP\n");
+}
+void cw_write_function(char *label, char* nlocals, FILE *f) {
+  strncpy(current_function, label, MAX_NAME_SZ - 1);
+  fprintf(f, "(%s)\n@%s\nD=A\n@R13\nM=D\n(%s.CLEAR)\n@R13\nDM=M-1\n@%s.CLEAR_END\nD;JLT\n@0\nD=A\n@SP\nA=M\nM=D\n@SP\nM=M+1\n@%s.CLEAR\n0;JMP\n(%s.CLEAR_END)\n", label, strlen(nlocals) == 0 ? "0" : nlocals, label, label, label, label);
+}
+void cw_write_init(FILE *f) {
+  fprintf(f, "@256\nD=A\n@SP\nM=D\n");
+  cw_write_call("Sys.init", "", f);
+}
 
 int main(int argc, char **argv) {
   char command_buf[MAX_SZ] = {0};
-  char arg1_buf[ARG_SZ] = {0};
-  char arg2_buf[ARG_SZ] = {0};
+  char arg1_buf[MAX_NAME_SZ] = {0};
+  char arg2_buf[MAX_NAME_SZ] = {0};
 
   FILE* f = p_init(argv[1]); // TODO: loop through files in a DIR
   cw_set_file_name(argv[1]);
@@ -293,11 +303,8 @@ int main(int argc, char **argv) {
     if (command_buf[0] == 0) { continue; }
     p_command_type(command_buf);
 
-    printf("c:%-20st:%-15s", command_buf, commands[current_command]);
     if (current_command != C_RETURN) {
-
       p_arg1(command_buf, arg1_buf);
-      printf("arg1:%-15s", arg1_buf);
     }
 
     switch(current_command) {
@@ -318,16 +325,21 @@ int main(int argc, char **argv) {
       case(C_IF):
         cw_write_if(arg1_buf, fo);
         break;
+      case(C_RETURN):
+        cw_write_return(fo);
+        break;
       case(C_FUNCTION):
+        p_arg2(command_buf, arg2_buf);
+        cw_write_function(arg1_buf, arg2_buf, fo);
+        break;
       case(C_CALL): {
         p_arg2(command_buf, arg2_buf);
+        cw_write_call(arg1_buf, arg2_buf, fo);
         break;
       }
       default:
         ;// NOTE: do nothing
     }
-
-    printf("\n");
   }
   return 0;
 }
