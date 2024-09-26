@@ -14,7 +14,6 @@
 
 // GLOBALS
 typedef enum { C_ARITHMETIC, C_PUSH, C_POP, C_LABEL, C_GOTO, C_IF, C_FUNCTION, C_RETURN, C_CALL, } Command;
-char *commands[] = { "C_ARITHMETIC", "C_PUSH", "C_POP", "C_LABEL", "C_GOTO", "C_IF", "C_FUNCTION", "C_RETURN", "C_CALL" };
 
 static char current_file[MAX_NAME_SZ] = {0};     // file being processed
 static Command current_command = -1;             // command being processed
