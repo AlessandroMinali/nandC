@@ -21,6 +21,11 @@ bool dff(bool a, DFF* d) {
 ```
 All other gates and components are fuction compositions of the above!
 
-Check out [gate.h](https://github.com/AlessandroMinali/nandC/blob/master/gate.h) to see the chips.  
-Check out [hack.c](https://github.com/AlessandroMinali/nandC/blob/master/hack.c) to see the final Hack computer.  
-There is a [hack assembler written in C](https://github.com/AlessandroMinali/nandC/blob/master/chapter6/assembler.c) which can be used to generate `.hack` files for consumption by `hack.c`
+### Hardware
+[gate.h](https://github.com/AlessandroMinali/nandC/blob/master/gate.h): hardware implementation in C  
+[hack.c](https://github.com/AlessandroMinali/nandC/blob/master/hack.c): Hack computer which runs binaries  
+### Software
+[assembler.c](https://github.com/AlessandroMinali/nandC/blob/master/chapter6/assembler.c): Hack ASM -> Hack binary  
+[vm.c](https://github.com/AlessandroMinali/nandC/blob/master/vm.c) VM lang -> Hack ASM  
+compiler.c(WIP): Jack lang -> VM lang  
+os.c(WIP): provides utilities for Jack lang
