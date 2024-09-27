@@ -2,7 +2,11 @@
 // rote implementation from "The Elements of Computing Systems" text
 // almost no error checking or considerations to optimization
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
+
+#define MAX_SZ 512
+#define COUNT 500
 
 FILE* t_init(char *filename) {
   return fopen(filename, "r");
@@ -12,93 +16,91 @@ bool t_has_more_tokens(FILE* f) {
   return feof(f) == 0;
 }
 
-typedef enum { NONE, SPACE, NEW_LINE, COMMENT_LINE, COMMENT_MULTI,
-               KEYWORD, SYMBOL, INTEGER_CONST, STRING_CONST, STRING_END, INDENTIFIER } Lexical;
-
+typedef enum { NONE, COMMENT_LINE, COMMENT_MULTI,
+               KEYWORD, SYMBOL, INTEGER_CONST, STRING_CONST, INDENTIFIER } Lexical;
+char *lex[] = { "NONE", "COMMENT_LINE", "COMMENT_MULTI",
+               "KEYWORD", "SYMBOL", "INTEGER_CONST", "STRING_CONST", "INDENTIFIER" }; // TODO: remove eventually
+Lexical prev_type;
 void t_advance(FILE* f, char* buf) {
   size_t idx = 0;
   Lexical type = NONE;
-  Lexical prev_type;
 
-  while(1) {
-    fread(&buf[idx], sizeof(char), 1, f);
-
+  while(fread(&buf[idx], sizeof(char), 1, f)) {
     prev_type = type;
-    if ('A' <= buf[idx] && buf[idx] <= 'Z' ||
-        'a' <= buf[idx] && buf[idx] <= 'z' ||
+    if (('A' <= buf[idx] && buf[idx] <= 'Z') ||
+        ('a' <= buf[idx] && buf[idx] <= 'z') ||
         '_' == buf[idx]) {
       type = INDENTIFIER;
     } else if (prev_type == COMMENT_LINE && buf[idx] == '\n') {
       prev_type = type = NONE;
       idx = 0;
+      continue;
     } else if (prev_type == COMMENT_MULTI && buf[idx-1] == '*' && buf[idx] == '/') {
       prev_type = type = NONE;
       idx = 0;
+      continue;
     } else if (buf[idx] == '{' || buf[idx] == '}' || buf[idx] == '(' || buf[idx] == ')' ||
-               buf[idx] == '[' || buf[idx] == ']' || buf[idx] == ',' || buf[idx] == ';' ||
-               buf[idx] == '+' || buf[idx] == '-' || buf[idx] == '*' || buf[idx] == '/' ||
-               buf[idx] == '&' || buf[idx] == '|' || buf[idx] == '<' || buf[idx] == '>' ||
-               buf[idx] == '=' || buf[idx] == '~' ||) {
+               buf[idx] == '[' || buf[idx] == ']' || buf[idx] == '.' || buf[idx] == ',' ||
+               buf[idx] == ';' || buf[idx] == '+' || buf[idx] == '-' || buf[idx] == '*' ||
+               buf[idx] == '/' || buf[idx] == '&' || buf[idx] == '|' || buf[idx] == '<' ||
+               buf[idx] == '>' || buf[idx] == '=' || buf[idx] == '~') {
       type = SYMBOL;
-    } else if ('0' <= buf[idx] || buf[idx] <= '9') {
+    } else if ('0' <= buf[idx] && buf[idx] <= '9') {
       type = INTEGER_CONST;
     } else if (buf[idx] == '"') {
-      type = STRING_END;
-    } else if (buf[idx] == ' ' || buf[idex] == '\t') {
-      type = NONE;
+      type = (prev_type == STRING_CONST ? NONE : STRING_CONST);
     } else if (buf[idx] == '\n') {
-      type = NEWLINE;
-    } else if (prev_type != COMMENT_LINE || prev_type != COMMENT_MULTI) {
-      printf("error: invalid char(%c).\n", buf[idx]);
-      exit(1);
-    } else {
-      printf("error: invalid.\n");
-      exit(1);
+      if (prev_type == STRING_CONST) {
+        printf("error: \\n in string.\n");
+        exit(1);
+      }
+      continue;
+    } else if (buf[idx] == ' ' || buf[idx] == '\t' || buf[idx] == '\r') {
+      if (prev_type == COMMENT_MULTI || prev_type == COMMENT_LINE) continue;
+      else type = NONE;
     }
 
     switch(type) {
-      case(NEWLINE):
-        if (prev_type == STRING_CONST) {
-          printf("error: \\n in string.\n");
-          exit(1);
-        }
-        type = NONE;
-        break;
       case(SYMBOL):
         if (0 < idx && buf[idx-1] == '/') {
           if (buf[idx] == '/') {
             prev_type = COMMENT_LINE;
           } else if (buf[idx] == '*') {
             prev_type = COMMENT_MULTI;
-          } else {
-            type = NONE; // symbol is one char
           }
         }
+        if (prev_type == SYMBOL) type = NONE; // symbol is one char
         break;
       case(INTEGER_CONST):
         if (prev_type == INDENTIFIER) { type = INDENTIFIER; }
         break;
-      case(STRING_END):
-        if (prev_type == STRING_CONST) { 
-          type = NONE; // end of string
-        } else {
-          type = STRING_CONST; // string start
-        }
+      default:
+        if (prev_type == STRING_CONST) { type = STRING_CONST; }
         break;
     }
 
-    if (prev_type == COMMENT_LINE) { type = COMMENT_LINE; }
-    if (prev_type == COMMENT_MULTI) { type = COMMENT_MULTI; }
-    else if (prev_type == STRING_CONST) { type = STRING_CONST; }
+    if (prev_type == COMMENT_LINE) { type = COMMENT_LINE; continue; }
+    if (prev_type == COMMENT_MULTI) { type = COMMENT_MULTI; continue;}
 
-    if (prev_type != NONE ||  prev_type != type) {
+    // printf("%s -> %s | %s\n", lex[prev_type], lex[type], buf);
+    if (prev_type != NONE && prev_type != type) {
       buf[idx] = '\0';
       fseek(f, -1, SEEK_CUR); // rewind by 1
       return;
     }
-    if (type != NONE) { ++idx; }
+    if (type != NONE) ++idx;
+  }
+  buf[idx] = '\0';
 }
 
 int main(int argc, char **argv) {
+  char buf[MAX_SZ] = {0};
+
+  FILE* f = t_init(argv[1]);
+  while(t_has_more_tokens(f)) {
+    t_advance(f, buf);
+    printf("%-15s%s\n", lex[prev_type], buf);
+  }
+
   return 0;
 }
