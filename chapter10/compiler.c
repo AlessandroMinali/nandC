@@ -17,9 +17,9 @@ bool t_has_more_tokens(FILE* f) {
 }
 
 typedef enum { NONE, COMMENT_LINE, COMMENT_MULTI,
-               KEYWORD, SYMBOL, INTEGER_CONST, STRING_CONST, INDENTIFIER } Lexical;
+               KEYWORD, SYMBOL, INTEGER_CONST, STRING, STRING_CONST, INDENTIFIER } Lexical;
 char *lex[] = { "NONE", "COMMENT_LINE", "COMMENT_MULTI",
-               "KEYWORD", "SYMBOL", "INTEGER_CONST", "STRING_CONST", "INDENTIFIER" }; // TODO: remove eventually
+               "KEYWORD", "SYMBOL", "INTEGER_CONST", "STRING", "STRING_CONST", "INDENTIFIER" }; // TODO: remove eventually
 Lexical prev_type;
 void t_advance(FILE* f, char* buf) {
   size_t idx = 0;
@@ -44,41 +44,31 @@ void t_advance(FILE* f, char* buf) {
                buf[idx] == ';' || buf[idx] == '+' || buf[idx] == '-' || buf[idx] == '*' ||
                buf[idx] == '/' || buf[idx] == '&' || buf[idx] == '|' || buf[idx] == '<' ||
                buf[idx] == '>' || buf[idx] == '=' || buf[idx] == '~') {
-      type = SYMBOL;
+      if (0 < idx && buf[idx-1] == '/') {
+        if (buf[idx] == '/') {
+          prev_type = COMMENT_LINE;
+        } else if (buf[idx] == '*') {
+          prev_type = COMMENT_MULTI;
+        }
+      }
+      type = (prev_type == SYMBOL) ? NONE : SYMBOL;
     } else if ('0' <= buf[idx] && buf[idx] <= '9') {
-      type = INTEGER_CONST;
+      type = (prev_type == INDENTIFIER) ? INDENTIFIER : INTEGER_CONST;
     } else if (buf[idx] == '"') {
-      type = (prev_type == STRING_CONST ? NONE : STRING_CONST);
+      if (prev_type == NONE) { type = STRING; continue; }
+      else if (prev_type == STRING) { prev_type = STRING_CONST; --idx; }
+      type = STRING_CONST;
     } else if (buf[idx] == '\n') {
-      if (prev_type == STRING_CONST) {
+      if (prev_type == STRING) {
         printf("error: \\n in string.\n");
         exit(1);
       }
       continue;
     } else if (buf[idx] == ' ' || buf[idx] == '\t' || buf[idx] == '\r') {
-      if (prev_type == COMMENT_MULTI || prev_type == COMMENT_LINE) continue;
-      else type = NONE;
+      type = NONE;
     }
 
-    switch(type) {
-      case(SYMBOL):
-        if (0 < idx && buf[idx-1] == '/') {
-          if (buf[idx] == '/') {
-            prev_type = COMMENT_LINE;
-          } else if (buf[idx] == '*') {
-            prev_type = COMMENT_MULTI;
-          }
-        }
-        if (prev_type == SYMBOL) type = NONE; // symbol is one char
-        break;
-      case(INTEGER_CONST):
-        if (prev_type == INDENTIFIER) { type = INDENTIFIER; }
-        break;
-      default:
-        if (prev_type == STRING_CONST) { type = STRING_CONST; }
-        break;
-    }
-
+    if (prev_type == STRING) { type = STRING; }
     if (prev_type == COMMENT_LINE) { type = COMMENT_LINE; continue; }
     if (prev_type == COMMENT_MULTI) { type = COMMENT_MULTI; continue;}
 

@@ -12,7 +12,7 @@ class Main {
         var int length;
         var int i, sum;
 	
-	let length = Keyboard.readInt("HOW MANY NUMBERS? ");
+	let leng123th = Keyboard.readInt("HOW )MANY2 NUMBERS? ");
 	let a = Array.new(length);
 	let i = 0;
 	
