@@ -193,12 +193,52 @@ void ce_compile_class_var_dec() {
   fwrite("</classVarDec>\n", 15, 1, fo);
 }
 void ce_compile_parameter_list() {
-  if (buf[0] == ')') { return; }
-
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("<parameterList>\n", 16, 1,fo);
   ++nest;
 
+  if (buf[0] != ')') {
+    if (!(prev_key == _INT ||
+          prev_key == _CHAR ||
+          prev_key == _BOOLEAN ||
+          prev_type == INDENTIFIER)) err("syntax: expected type");
+    else ce_compile_term();
+
+    t_advance();
+    if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+    else ce_compile_term();
+
+    t_advance();
+    while(buf[0] == ',') {
+      ce_compile_term();
+
+      t_advance();
+      if (!(prev_key == _INT ||
+          prev_key == _CHAR ||
+          prev_key == _BOOLEAN ||
+          prev_type == INDENTIFIER)) err("syntax: expected type");
+      else ce_compile_term();
+
+      t_advance();
+      if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+      else ce_compile_term();
+
+      t_advance();
+    }
+  }
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</parameterList>\n", 17, 1, fo);
+}
+void ce_compile_var_dec() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<varDec>\n", 9, 1,fo);
+  ++nest;
+
+  ce_compile_term();
+
+  t_advance();
   if (!(prev_key == _INT ||
         prev_key == _CHAR ||
         prev_key == _BOOLEAN ||
@@ -214,22 +254,21 @@ void ce_compile_parameter_list() {
     ce_compile_term();
 
     t_advance();
-    if (!(prev_key == _INT ||
-        prev_key == _CHAR ||
-        prev_key == _BOOLEAN ||
-        prev_type == INDENTIFIER)) err("syntax: expected type");
-    else ce_compile_term();
-
-    t_advance();
     if (prev_type != INDENTIFIER) err("syntax: expected identifier");
     else ce_compile_term();
 
     t_advance();
   }
 
+  if (!(prev_type == SYMBOL || buf[0] == ';')) err("syntax: expected ;");
+  else ce_compile_term();
+
   --nest;
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
-  fwrite("</parameterList>\n", 17, 1, fo);
+  fwrite("</varDec>\n", 10, 1, fo);
+}
+void ce_compile_statements() {
+
 }
 
 void ce_compile_subroutine() {
@@ -269,10 +308,15 @@ void ce_compile_subroutine() {
   if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected {");
   else ce_compile_term();
 
-  // varDec*
-  // ce_compile_statements(); // statements
-
   t_advance();
+  while(prev_key == _VAR) {
+    ce_compile_var_dec();
+    t_advance();
+  }
+
+  // TODO: statements
+  // ce_compile_statements();
+
   if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected }");
   else ce_compile_term();
 
@@ -319,8 +363,6 @@ void ce_compile_class() {
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("</class>\n", 9, 1, fo);
 }
-// void ce_compile_var_dec();
-// void ce_compile_statements();
 // void ce_compile_do();
 // void ce_compile_let();
 // void ce_compile_while();
