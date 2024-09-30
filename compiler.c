@@ -6,28 +6,42 @@
 #include <stdbool.h>
 #include <string.h>
 
-#define MAX_SZ 512 // functionally the limit for multi-line comment 
+#define MAX_SZ 512 // functionally the limit for multi-line comment
 
-FILE* t_init(char *filename) {
-  return fopen(filename, "r");
+void err(char *msg) {
+  printf("%s\n", msg);
+  exit(1);
+}
+
+static char buf[MAX_SZ] = {0};
+static FILE* f;
+static FILE* fo;
+static char nest = 0;
+
+void t_init(char *filename) {
+  f = fopen(filename, "r");
 }
 bool t_has_more_tokens(FILE* f) {
   return feof(f) == 0;
 }
 typedef enum { NONE, COMMENT_LINE, COMMENT_MULTI,
-               KEYWORD, SYMBOL, INTEGER_CONST, STRING, STRING_CONST, INDENTIFIER,
-               _CLASS, _METHOD, _FUNCTION, _CONSTRUCTOR, _INT, _BOOLEAN, _CHAR, _VOID,
-               _VAR, _STATIC, _FIELD, _LET, _DO, _IF, _ELSE, _WHILE, _RETURN,
-               _TRUE, _FALSE, _NULL, _THIS } Lexical;
+               KEYWORD, SYMBOL, INTEGER_CONST, STRING, STRING_CONST, INDENTIFIER } Lexical;
 char *lex[] = { "NONE", "COMMENT_LINE", "COMMENT_MULTI",
-               "KEYWORD", "SYMBOL", "INTEGER_CONST", "STRING", "STRING_CONST", "INDENTIFIER",
-               "CLASS", "METHOD", "FUNCTION", "CONSTRUCTOR", "INT", "BOOLEAN", "CHAR", "VOID",
-               "VAR", "STATIC", "FIELD", "LET", "DO", "IF", "ELSE", "WHILE", "RETURN",
-               "TRUE", "FALSE", "NULL", "THIS" }; // TODO: remove eventually
+               "keyword", "symbol", "integerConstant", "STRING", "stringConstant", "identifier" }; // TODO: remove eventually
+typedef enum { _NONE, _CLASS, _METHOD, _FUNCTION, _CONSTRUCTOR, _INT, _BOOLEAN, _CHAR, _VOID,
+               _VAR, _STATIC, _FIELD, _LET, _DO, _IF, _ELSE, _WHILE, _RETURN,
+               _TRUE, _FALSE, _NULL, _THIS } Keyword;
+char *key[] = { "none", "class", "method", "function", "constructor",
+                "int", "boolean","char", "void",
+                "var", "static", "field",
+                "let", "do", "if", "else", "while", "return",
+                "true", "false", "null", "this" }; // TODO: remove eventually
 Lexical prev_type;
-void t_advance(FILE* f, char* buf) {
+Keyword prev_key;
+void t_advance() {
   size_t idx = 0;
   Lexical type = NONE;
+  prev_key = _NONE;
 
   while(fread(&buf[idx], sizeof(char), 1, f)) {
     prev_type = type;
@@ -85,6 +99,32 @@ void t_advance(FILE* f, char* buf) {
     if (prev_type != NONE && prev_type != type) {
       buf[idx] = '\0';
       fseek(f, -1, SEEK_CUR); // rewind by 1
+
+      if (prev_type == INDENTIFIER) {
+        if (strcmp(buf, "class") == 0) prev_key = _CLASS;
+        else if (strcmp(buf, "method") == 0) prev_key = _METHOD;
+        else if (strcmp(buf, "function") == 0) prev_key = _FUNCTION;
+        else if (strcmp(buf, "constructor") == 0) prev_key = _CONSTRUCTOR;
+        else if (strcmp(buf, "int") == 0) prev_key = _INT;
+        else if (strcmp(buf, "boolean") == 0) prev_key = _BOOLEAN;
+        else if (strcmp(buf, "char") == 0) prev_key = _CHAR;
+        else if (strcmp(buf, "void") == 0) prev_key = _VOID;
+        else if (strcmp(buf, "var") == 0) prev_key = _VAR;
+        else if (strcmp(buf, "static") == 0) prev_key = _STATIC;
+        else if (strcmp(buf, "field") == 0) prev_key = _FIELD;
+        else if (strcmp(buf, "let") == 0) prev_key = _LET;
+        else if (strcmp(buf, "do") == 0) prev_key = _DO;
+        else if (strcmp(buf, "if") == 0) prev_key = _IF;
+        else if (strcmp(buf, "else") == 0) prev_key = _ELSE;
+        else if (strcmp(buf, "while") == 0) prev_key = _WHILE;
+        else if (strcmp(buf, "return") == 0) prev_key = _RETURN;
+        else if (strcmp(buf, "true") == 0) prev_key = _TRUE;
+        else if (strcmp(buf, "false") == 0) prev_key = _FALSE;
+        else if (strcmp(buf, "null") == 0) prev_key = _NULL;
+        else if (strcmp(buf, "this") == 0) prev_key = _THIS;
+
+        if (prev_key != _NONE) prev_type = KEYWORD;
+      }
       return;
     }
     if (type != NONE) ++idx;
@@ -100,37 +140,205 @@ Lexical t_int_val();
 Lexical t_string_val();
 */
 
-int main(int argc, char **argv) {
-  char buf[MAX_SZ] = {0};
-
-  FILE* f = t_init(argv[1]);
-  while(t_has_more_tokens(f)) {
-    t_advance(f, buf);
-    if (prev_type == INDENTIFIER) {
-      if (strcmp(buf, "class") == 0) prev_type = _CLASS;
-      if (strcmp(buf, "method") == 0) prev_type = _METHOD;
-      if (strcmp(buf, "function") == 0) prev_type = _CLASS;
-      if (strcmp(buf, "constructor") == 0) prev_type = _CONSTRUCTOR;
-      if (strcmp(buf, "int") == 0) prev_type = _INT;
-      if (strcmp(buf, "boolean") == 0) prev_type = _BOOLEAN;
-      if (strcmp(buf, "char") == 0) prev_type = _CHAR;
-      if (strcmp(buf, "void") == 0) prev_type = _VOID;
-      if (strcmp(buf, "var") == 0) prev_type = _VAR;
-      if (strcmp(buf, "static") == 0) prev_type = _STATIC;
-      if (strcmp(buf, "field") == 0) prev_type = _FIELD;
-      if (strcmp(buf, "let") == 0) prev_type = _LET;
-      if (strcmp(buf, "do") == 0) prev_type = _DO;
-      if (strcmp(buf, "if") == 0) prev_type = _IF;
-      if (strcmp(buf, "else") == 0) prev_type = _ELSE;
-      if (strcmp(buf, "while") == 0) prev_type = _WHILE;
-      if (strcmp(buf, "return") == 0) prev_type = _RETURN;
-      if (strcmp(buf, "true") == 0) prev_type = _TRUE;
-      if (strcmp(buf, "false") == 0) prev_type = _FALSE;
-      if (strcmp(buf, "null") == 0) prev_type = _NULL;
-      if (strcmp(buf, "this") == 0) prev_type = _THIS;
+void ce_init(char *filename) {
+  char out[MAX_SZ];
+  for(uint16_t i = 0; i < MAX_SZ; ++i) {
+    if (filename[i] == '.' || filename[i] == '\0') {
+      out[i] = '\0';
+      break;
     }
-    printf("%-15s%s\n", lex[prev_type], buf);
+    out[i] = filename[i];
   }
+  strcat(out, "1.xml"); // TODO: remove 1 after testing
+  fo = fopen(out, "w");
+}
+void ce_compile_term() { // Todo: array and sub rt handling
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fprintf(fo, "<%s> %s </%s>\n", lex[prev_type], buf, lex[prev_type]);
+}
+void ce_compile_class_var_dec() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<classVarDec>\n", 14, 1,fo);
+  ++nest;
+
+  ce_compile_term();
+
+  t_advance();
+  if (!(prev_key == _INT ||
+        prev_key == _CHAR ||
+        prev_key == _BOOLEAN ||
+        prev_type == INDENTIFIER)) err("syntax: expected type");
+  else ce_compile_term();
+
+  t_advance();
+  if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+  else ce_compile_term();
+
+  t_advance();
+  while(buf[0] == ',') {
+    ce_compile_term();
+
+    t_advance();
+    if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+    else ce_compile_term();
+
+    t_advance();
+  }
+
+  if (buf[0] != ';') err("syntax: expected ;");
+  else ce_compile_term();
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</classVarDec>\n", 15, 1, fo);
+}
+void ce_compile_parameter_list() {
+  if (buf[0] == ')') { return; }
+
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<parameterList>\n", 16, 1,fo);
+  ++nest;
+
+  if (!(prev_key == _INT ||
+        prev_key == _CHAR ||
+        prev_key == _BOOLEAN ||
+        prev_type == INDENTIFIER)) err("syntax: expected type");
+  else ce_compile_term();
+
+  t_advance();
+  if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+  else ce_compile_term();
+
+  t_advance();
+  while(buf[0] == ',') {
+    ce_compile_term();
+
+    t_advance();
+    if (!(prev_key == _INT ||
+        prev_key == _CHAR ||
+        prev_key == _BOOLEAN ||
+        prev_type == INDENTIFIER)) err("syntax: expected type");
+    else ce_compile_term();
+
+    t_advance();
+    if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+    else ce_compile_term();
+
+    t_advance();
+  }
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</parameterList>\n", 17, 1, fo);
+}
+
+void ce_compile_subroutine() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<subroutineDec>\n", 16, 1,fo);
+  ++nest;
+
+  ce_compile_term();
+
+  t_advance();
+  if (!(prev_key == _VOID ||
+        prev_key == _INT ||
+        prev_key == _CHAR ||
+        prev_key == _BOOLEAN ||
+        prev_type == INDENTIFIER)) err("syntax: expected void | type");
+  else ce_compile_term();
+
+  t_advance();
+  if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+  else ce_compile_term();
+
+  t_advance();
+  if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected (");
+  else ce_compile_term();
+
+  t_advance();
+  ce_compile_parameter_list();
+
+  if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
+  else ce_compile_term();
+
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<subroutineBody>\n", 17, 1,fo);
+  ++nest;
+
+  t_advance();
+  if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected {");
+  else ce_compile_term();
+
+  // varDec*
+  // ce_compile_statements(); // statements
+
+  t_advance();
+  if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected }");
+  else ce_compile_term();
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</subroutineBody>\n", 18, 1, fo);
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</subroutineDec>\n", 17, 1, fo);
+}
+void ce_compile_class() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<class>\n", 8, 1,fo);
+  ++nest;
+
+  t_advance();
+  if (prev_key != _CLASS) err("syntax: expected class");
+  else ce_compile_term();
+
+  t_advance();
+  if (prev_type != INDENTIFIER) err("syntax: expected class");
+  else ce_compile_term();
+
+  t_advance();
+  if (!(prev_type == SYMBOL || buf[0] == '{')) err("syntax: expected {");
+  else ce_compile_term();
+
+  t_advance();
+  while(prev_key == _STATIC || prev_key == _FIELD) {
+    ce_compile_class_var_dec();
+    t_advance();
+  }
+
+  while(prev_key == _CONSTRUCTOR || prev_key == _FUNCTION || prev_key == _METHOD) {
+    ce_compile_subroutine();
+    t_advance();
+  }
+
+  if (!(prev_type == SYMBOL || buf[0] == '}')) err("syntax: expected }");
+  else ce_compile_term();
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</class>\n", 9, 1, fo);
+}
+// void ce_compile_var_dec();
+// void ce_compile_statements();
+// void ce_compile_do();
+// void ce_compile_let();
+// void ce_compile_while();
+// void ce_compile_return();
+// void ce_compile_if();
+// void ce_compile_expression();
+// void ce_compile_expression_list();
+
+int main(int argc, char **argv) {
+  char *filename = argv[1];
+
+  t_init(filename);
+  ce_init(filename);
+  // while(t_has_more_tokens(f)) {
+  //   t_advance(f, buf);
+  //   printf("%-15s%s\n", lex[prev_type], buf);
+  // }
+  ce_compile_class();
 
   return 0;
 }
