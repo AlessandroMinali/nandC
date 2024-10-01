@@ -95,7 +95,6 @@ void t_advance() {
     else if (prev_type == COMMENT_LINE) { type = COMMENT_LINE; continue; }
     else if (prev_type == COMMENT_MULTI) { type = COMMENT_MULTI; continue; }
 
-    // printf("%s -> %s | %s\n", lex[prev_type], lex[type], buf);
     if (prev_type != NONE && prev_type != type) {
       buf[idx] = '\0';
       fseek(f, -1, SEEK_CUR); // rewind by 1
@@ -152,7 +151,7 @@ void ce_init(char *filename) {
   strcat(out, "1.xml"); // TODO: remove 1 after testing
   fo = fopen(out, "w");
 }
-void ce_compile_term() { // Todo: array and sub rt handling
+void ce_compile_terminal() {
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fprintf(fo, "<%s> %s </%s>\n", lex[prev_type], buf, lex[prev_type]);
 }
@@ -161,32 +160,32 @@ void ce_compile_class_var_dec() {
   fwrite("<classVarDec>\n", 14, 1,fo);
   ++nest;
 
-  ce_compile_term();
+  ce_compile_terminal();
 
   t_advance();
   if (!(prev_key == _INT ||
         prev_key == _CHAR ||
         prev_key == _BOOLEAN ||
         prev_type == INDENTIFIER)) err("syntax: expected type");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   if (prev_type != INDENTIFIER) err("syntax: expected identifier");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   while(buf[0] == ',') {
-    ce_compile_term();
+    ce_compile_terminal();
 
     t_advance();
     if (prev_type != INDENTIFIER) err("syntax: expected identifier");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
   }
 
   if (buf[0] != ';') err("syntax: expected ;");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   --nest;
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
@@ -202,26 +201,26 @@ void ce_compile_parameter_list() {
           prev_key == _CHAR ||
           prev_key == _BOOLEAN ||
           prev_type == INDENTIFIER)) err("syntax: expected type");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
     if (prev_type != INDENTIFIER) err("syntax: expected identifier");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
     while(buf[0] == ',') {
-      ce_compile_term();
+      ce_compile_terminal();
 
       t_advance();
       if (!(prev_key == _INT ||
           prev_key == _CHAR ||
           prev_key == _BOOLEAN ||
           prev_type == INDENTIFIER)) err("syntax: expected type");
-      else ce_compile_term();
+      else ce_compile_terminal();
 
       t_advance();
       if (prev_type != INDENTIFIER) err("syntax: expected identifier");
-      else ce_compile_term();
+      else ce_compile_terminal();
 
       t_advance();
     }
@@ -236,63 +235,86 @@ void ce_compile_var_dec() {
   fwrite("<varDec>\n", 9, 1,fo);
   ++nest;
 
-  ce_compile_term();
+  ce_compile_terminal();
 
   t_advance();
   if (!(prev_key == _INT ||
         prev_key == _CHAR ||
         prev_key == _BOOLEAN ||
         prev_type == INDENTIFIER)) err("syntax: expected type");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   if (prev_type != INDENTIFIER) err("syntax: expected identifier");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   while(buf[0] == ',') {
-    ce_compile_term();
+    ce_compile_terminal();
 
     t_advance();
     if (prev_type != INDENTIFIER) err("syntax: expected identifier");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
   }
 
   if (!(prev_type == SYMBOL || buf[0] == ';')) err("syntax: expected ;");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   --nest;
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("</varDec>\n", 10, 1, fo);
 }
 void ce_compile_statements(); // NOTE: forward declaration
-void ce_compile_expression() { // TODO
-  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
-  fwrite("<expression>\n", 13, 1,fo);
-  ++nest;
-
+void ce_compile_term() {
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("<term>\n", 7, 1,fo);
   ++nest;
 
-  ce_compile_term();
+  // TODO
+  ce_compile_terminal();
 
   --nest;
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("</term>\n", 8, 1, fo);
+}
+void ce_compile_expression() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<expression>\n", 13, 1,fo);
+  ++nest;
+
+  ce_compile_term();
+
+  t_advance();
+  while (prev_type == SYMBOL && (
+      buf[0] == '+' || buf[0] == '-' || buf[0] == '*' || buf[0] == '/' ||
+      buf[0] == '&' || buf[0] == '|' || buf[0] == '<' || buf[0] == '>')) {
+    ce_compile_terminal();
+
+    t_advance();
+    ce_compile_term();
+
+    t_advance();
+  }
 
   --nest;
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("</expression>\n", 14, 1, fo);
 }
-void ce_compile_expression_list() { // TODO
+void ce_compile_expression_list() {
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("<expressionList>\n", 17, 1,fo);
   ++nest;
 
-  // ce_compile_term();
+  ce_compile_expression();
+
+  while(buf[0] == ',') {
+    ce_compile_terminal();
+
+    t_advance();
+    ce_compile_expression();
+  }
 
   --nest;
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
@@ -303,35 +325,33 @@ void ce_compile_let() {
   fwrite("<letStatement>\n", 15, 1,fo);
   ++nest;
 
-  ce_compile_term();
+  ce_compile_terminal();
 
   t_advance();
   if (prev_type != INDENTIFIER) err("syntax: expected identifier");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   if (prev_type == SYMBOL && buf[0] == '[') {
-    ce_compile_term();
+    ce_compile_terminal();
 
     t_advance();
     ce_compile_expression();
 
-    t_advance();
     if (!(prev_type == SYMBOL || buf[0] == ']')) err("syntax: expected ]");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
   }
 
   if (!(prev_type == SYMBOL || buf[0] == '=')) err("syntax: expected =");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   ce_compile_expression();
 
-  t_advance();
   if (!(prev_type == SYMBOL || buf[0] == ';')) err("syntax: expected ;");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
 
@@ -344,42 +364,41 @@ void ce_compile_if() {
   fwrite("<ifStatement>\n", 14, 1,fo);
   ++nest;
 
-  ce_compile_term();
+  ce_compile_terminal();
 
   t_advance();
   if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected (");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   ce_compile_expression();
 
-  t_advance();
   if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   if (!(prev_type == SYMBOL || buf[0] == '{')) err("syntax: expected {");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   ce_compile_statements();
 
   if (!(prev_type == SYMBOL || buf[0] == '}')) err("syntax: expected }");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   if (prev_key == _ELSE) {
-    ce_compile_term();
+    ce_compile_terminal();
 
     t_advance();
     if (!(prev_type == SYMBOL || buf[0] == '{')) err("syntax: expected {");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
     ce_compile_statements();
 
     if (!(prev_type == SYMBOL || buf[0] == '}')) err("syntax: expected }");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
   }
@@ -393,28 +412,27 @@ void ce_compile_while() {
   fwrite("<whileStatement>\n", 17, 1,fo);
   ++nest;
 
-  ce_compile_term();
+  ce_compile_terminal();
 
   t_advance();
   if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected (");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   ce_compile_expression();
 
-  t_advance();
   if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   if (!(prev_type == SYMBOL || buf[0] == '{')) err("syntax: expected {");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   ce_compile_statements();
 
   if (!(prev_type == SYMBOL || buf[0] == '}')) err("syntax: expected }");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
 
@@ -428,46 +446,53 @@ void ce_compile_do() {
   fwrite("<doStatement>\n", 14, 1,fo);
   ++nest;
 
-  ce_compile_term();
+  ce_compile_terminal();
 
   t_advance();
   if (prev_type != INDENTIFIER) err("syntax: expected identifier");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   if (prev_type != SYMBOL || (buf[0] != '(' && buf[0] != '.')) err("syntax: expected subroutine call");
   if (buf[0] == '(') {
-    ce_compile_term();
+    ce_compile_terminal();
 
     t_advance();
-    ce_compile_expression_list();
+    if (buf[0] != ')') {
+      ce_compile_expression_list();
 
-    t_advance();
+      t_advance();
+    }
+
     if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
-    else ce_compile_term();
+    else ce_compile_terminal();
   } else if (buf[0] == '.') {
-    ce_compile_term();
+    ce_compile_terminal();
 
     t_advance();
     if (prev_type != INDENTIFIER) err("syntax: expected identifier");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
     if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected (");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
-    ce_compile_expression_list();
+    if (buf[0] != ')') {
+      ce_compile_expression_list();
+
+      t_advance();
+    }
 
     if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
-    else ce_compile_term();
+    else ce_compile_terminal();
   } else {
     err("syntax: invalid subroutine call");
   }
 
   t_advance();
   if (!(prev_type == SYMBOL || buf[0] == ';')) err("syntax: expected ;");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
 
@@ -480,17 +505,13 @@ void ce_compile_return() {
   fwrite("<returnStatement>\n", 18, 1,fo);
   ++nest;
 
-  ce_compile_term();
+  ce_compile_terminal();
 
   t_advance();
-  if(buf[0] != ';') {
-    ce_compile_expression();
-
-    t_advance();
-  }
+  if(buf[0] != ';') ce_compile_expression();
 
   if (!(prev_type == SYMBOL || buf[0] == ';')) err("syntax: expected ;");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
 
@@ -523,15 +544,15 @@ void ce_compile_class() {
 
   t_advance();
   if (prev_key != _CLASS) err("syntax: expected class");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
-  if (prev_type != INDENTIFIER) err("syntax: expected class");
-  else ce_compile_term();
+  if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+  else ce_compile_terminal();
 
   t_advance();
   if (!(prev_type == SYMBOL || buf[0] == '{')) err("syntax: expected {");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   t_advance();
   while(prev_key == _STATIC || prev_key == _FIELD) {
@@ -544,7 +565,7 @@ void ce_compile_class() {
     fwrite("<subroutineDec>\n", 16, 1,fo);
     ++nest;
 
-    ce_compile_term();
+    ce_compile_terminal();
 
     t_advance();
     if (!(prev_key == _VOID ||
@@ -552,21 +573,21 @@ void ce_compile_class() {
           prev_key == _CHAR ||
           prev_key == _BOOLEAN ||
           prev_type == INDENTIFIER)) err("syntax: expected void | type");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
     if (prev_type != INDENTIFIER) err("syntax: expected identifier");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
     if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected (");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
     ce_compile_parameter_list();
 
     if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
     fwrite("<subroutineBody>\n", 17, 1,fo);
@@ -574,7 +595,7 @@ void ce_compile_class() {
 
     t_advance();
     if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected {");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
     while(prev_key == _VAR) {
@@ -585,7 +606,7 @@ void ce_compile_class() {
     ce_compile_statements();
 
     if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected }");
-    else ce_compile_term();
+    else ce_compile_terminal();
 
     t_advance();
 
@@ -599,7 +620,7 @@ void ce_compile_class() {
   }
 
   if (!(prev_type == SYMBOL || buf[0] == '}')) err("syntax: expected }");
-  else ce_compile_term();
+  else ce_compile_terminal();
 
   --nest;
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
@@ -611,10 +632,6 @@ int main(int argc, char **argv) {
 
   t_init(filename);
   ce_init(filename);
-  // while(t_has_more_tokens(f)) {
-  //   t_advance(f, buf);
-  //   printf("%-15s%s\n", lex[prev_type], buf);
-  // }
   ce_compile_class();
 
   return 0;
