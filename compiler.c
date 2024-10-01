@@ -267,66 +267,254 @@ void ce_compile_var_dec() {
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("</varDec>\n", 10, 1, fo);
 }
-void ce_compile_statements() {
-
-}
-
-void ce_compile_subroutine() {
+void ce_compile_statements(); // NOTE: forward declaration
+void ce_compile_expression() { // TODO
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
-  fwrite("<subroutineDec>\n", 16, 1,fo);
+  fwrite("<expression>\n", 13, 1,fo);
+  ++nest;
+
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<term>\n", 7, 1,fo);
   ++nest;
 
   ce_compile_term();
 
-  t_advance();
-  if (!(prev_key == _VOID ||
-        prev_key == _INT ||
-        prev_key == _CHAR ||
-        prev_key == _BOOLEAN ||
-        prev_type == INDENTIFIER)) err("syntax: expected void | type");
-  else ce_compile_term();
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</term>\n", 8, 1, fo);
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</expression>\n", 14, 1, fo);
+}
+void ce_compile_expression_list() { // TODO
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<expressionList>\n", 17, 1,fo);
+  ++nest;
+
+  // ce_compile_term();
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</expressionList>\n", 18, 1, fo);
+}
+void ce_compile_let() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<letStatement>\n", 15, 1,fo);
+  ++nest;
+
+  ce_compile_term();
 
   t_advance();
   if (prev_type != INDENTIFIER) err("syntax: expected identifier");
   else ce_compile_term();
 
   t_advance();
+  if (prev_type == SYMBOL && buf[0] == '[') {
+    ce_compile_term();
+
+    t_advance();
+    ce_compile_expression();
+
+    t_advance();
+    if (!(prev_type == SYMBOL || buf[0] == ']')) err("syntax: expected ]");
+    else ce_compile_term();
+
+    t_advance();
+  }
+
+  if (!(prev_type == SYMBOL || buf[0] == '=')) err("syntax: expected =");
+  else ce_compile_term();
+
+  t_advance();
+  ce_compile_expression();
+
+  t_advance();
+  if (!(prev_type == SYMBOL || buf[0] == ';')) err("syntax: expected ;");
+  else ce_compile_term();
+
+  t_advance();
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</letStatement>\n", 16, 1, fo);
+}
+void ce_compile_if() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<ifStatement>\n", 14, 1,fo);
+  ++nest;
+
+  ce_compile_term();
+
+  t_advance();
   if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected (");
   else ce_compile_term();
 
   t_advance();
-  ce_compile_parameter_list();
+  ce_compile_expression();
 
+  t_advance();
   if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
   else ce_compile_term();
 
-  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
-  fwrite("<subroutineBody>\n", 17, 1,fo);
-  ++nest;
-
   t_advance();
-  if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected {");
+  if (!(prev_type == SYMBOL || buf[0] == '{')) err("syntax: expected {");
   else ce_compile_term();
 
   t_advance();
-  while(prev_key == _VAR) {
-    ce_compile_var_dec();
+  ce_compile_statements();
+
+  if (!(prev_type == SYMBOL || buf[0] == '}')) err("syntax: expected }");
+  else ce_compile_term();
+
+  t_advance();
+  if (prev_key == _ELSE) {
+    ce_compile_term();
+
+    t_advance();
+    if (!(prev_type == SYMBOL || buf[0] == '{')) err("syntax: expected {");
+    else ce_compile_term();
+
+    t_advance();
+    ce_compile_statements();
+
+    if (!(prev_type == SYMBOL || buf[0] == '}')) err("syntax: expected }");
+    else ce_compile_term();
+
     t_advance();
   }
 
-  // TODO: statements
-  // ce_compile_statements();
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</ifStatement>\n", 15, 1, fo);
+}
+void ce_compile_while() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<whileStatement>\n", 17, 1,fo);
+  ++nest;
 
-  if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected }");
+  ce_compile_term();
+
+  t_advance();
+  if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected (");
   else ce_compile_term();
 
-  --nest;
-  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
-  fwrite("</subroutineBody>\n", 18, 1, fo);
+  t_advance();
+  ce_compile_expression();
+
+  t_advance();
+  if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
+  else ce_compile_term();
+
+  t_advance();
+  if (!(prev_type == SYMBOL || buf[0] == '{')) err("syntax: expected {");
+  else ce_compile_term();
+
+  t_advance();
+  ce_compile_statements();
+
+  if (!(prev_type == SYMBOL || buf[0] == '}')) err("syntax: expected }");
+  else ce_compile_term();
+
+  t_advance();
 
   --nest;
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
-  fwrite("</subroutineDec>\n", 17, 1, fo);
+  fwrite("</whileStatement>\n", 18, 1, fo);
+}
+
+void ce_compile_do() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<doStatement>\n", 14, 1,fo);
+  ++nest;
+
+  ce_compile_term();
+
+  t_advance();
+  if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+  else ce_compile_term();
+
+  t_advance();
+  if (prev_type != SYMBOL || (buf[0] != '(' && buf[0] != '.')) err("syntax: expected subroutine call");
+  if (buf[0] == '(') {
+    ce_compile_term();
+
+    t_advance();
+    ce_compile_expression_list();
+
+    t_advance();
+    if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
+    else ce_compile_term();
+  } else if (buf[0] == '.') {
+    ce_compile_term();
+
+    t_advance();
+    if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+    else ce_compile_term();
+
+    t_advance();
+    if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected (");
+    else ce_compile_term();
+
+    t_advance();
+    ce_compile_expression_list();
+
+    if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
+    else ce_compile_term();
+  } else {
+    err("syntax: invalid subroutine call");
+  }
+
+  t_advance();
+  if (!(prev_type == SYMBOL || buf[0] == ';')) err("syntax: expected ;");
+  else ce_compile_term();
+
+  t_advance();
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</doStatement>\n", 15, 1, fo);
+}
+void ce_compile_return() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<returnStatement>\n", 18, 1,fo);
+  ++nest;
+
+  ce_compile_term();
+
+  t_advance();
+  if(buf[0] != ';') {
+    ce_compile_expression();
+
+    t_advance();
+  }
+
+  if (!(prev_type == SYMBOL || buf[0] == ';')) err("syntax: expected ;");
+  else ce_compile_term();
+
+  t_advance();
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</returnStatement>\n", 19, 1, fo);
+}
+void ce_compile_statements() {
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("<statements>\n", 13, 1,fo);
+  ++nest;
+
+  while(1) {
+    if (prev_key == _LET) ce_compile_let();
+    else if (prev_key == _IF) ce_compile_if();
+    else if (prev_key == _WHILE) ce_compile_while();
+    else if (prev_key == _DO) ce_compile_do();
+    else if (prev_key == _RETURN) ce_compile_return();
+    else break;
+  }
+
+  --nest;
+  for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+  fwrite("</statements>\n", 14, 1,fo);
 }
 void ce_compile_class() {
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
@@ -352,8 +540,62 @@ void ce_compile_class() {
   }
 
   while(prev_key == _CONSTRUCTOR || prev_key == _FUNCTION || prev_key == _METHOD) {
-    ce_compile_subroutine();
+    for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+    fwrite("<subroutineDec>\n", 16, 1,fo);
+    ++nest;
+
+    ce_compile_term();
+
     t_advance();
+    if (!(prev_key == _VOID ||
+          prev_key == _INT ||
+          prev_key == _CHAR ||
+          prev_key == _BOOLEAN ||
+          prev_type == INDENTIFIER)) err("syntax: expected void | type");
+    else ce_compile_term();
+
+    t_advance();
+    if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+    else ce_compile_term();
+
+    t_advance();
+    if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected (");
+    else ce_compile_term();
+
+    t_advance();
+    ce_compile_parameter_list();
+
+    if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
+    else ce_compile_term();
+
+    for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+    fwrite("<subroutineBody>\n", 17, 1,fo);
+    ++nest;
+
+    t_advance();
+    if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected {");
+    else ce_compile_term();
+
+    t_advance();
+    while(prev_key == _VAR) {
+      ce_compile_var_dec();
+      t_advance();
+    }
+
+    ce_compile_statements();
+
+    if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected }");
+    else ce_compile_term();
+
+    t_advance();
+
+    --nest;
+    for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+    fwrite("</subroutineBody>\n", 18, 1, fo);
+
+    --nest;
+    for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
+    fwrite("</subroutineDec>\n", 17, 1, fo);
   }
 
   if (!(prev_type == SYMBOL || buf[0] == '}')) err("syntax: expected }");
@@ -363,13 +605,6 @@ void ce_compile_class() {
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("</class>\n", 9, 1, fo);
 }
-// void ce_compile_do();
-// void ce_compile_let();
-// void ce_compile_while();
-// void ce_compile_return();
-// void ce_compile_if();
-// void ce_compile_expression();
-// void ce_compile_expression_list();
 
 int main(int argc, char **argv) {
   char *filename = argv[1];
