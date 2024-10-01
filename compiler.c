@@ -272,7 +272,6 @@ void ce_compile_term() {
   fwrite("<term>\n", 7, 1,fo);
   ++nest;
 
-  // TODO
   ce_compile_terminal();
 
   --nest;
@@ -307,13 +306,15 @@ void ce_compile_expression_list() {
   fwrite("<expressionList>\n", 17, 1,fo);
   ++nest;
 
-  ce_compile_expression();
-
-  while(buf[0] == ',') {
-    ce_compile_terminal();
-
-    t_advance();
+  if (buf[0] != ')') {
     ce_compile_expression();
+
+    while(buf[0] == ',') {
+      ce_compile_terminal();
+
+      t_advance();
+      ce_compile_expression();
+    }
   }
 
   --nest;
@@ -458,11 +459,7 @@ void ce_compile_do() {
     ce_compile_terminal();
 
     t_advance();
-    if (buf[0] != ')') {
-      ce_compile_expression_list();
-
-      t_advance();
-    }
+    ce_compile_expression_list();
 
     if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
     else ce_compile_terminal();
@@ -478,11 +475,7 @@ void ce_compile_do() {
     else ce_compile_terminal();
 
     t_advance();
-    if (buf[0] != ')') {
-      ce_compile_expression_list();
-
-      t_advance();
-    }
+    ce_compile_expression_list();
 
     if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
     else ce_compile_terminal();
