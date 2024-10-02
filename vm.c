@@ -297,7 +297,12 @@ int main(int argc, char **argv) {
 
   char path[MAX_SZ];
   char fname[MAX_SZ];
-  memcpy(path, argv[1], strlen(argv[1])+1);
+  size_t len = strlen(argv[1]);
+  memcpy(path, argv[1], len+1);
+  if (path[len-1] != '/') {
+    path[len] = '/';
+    ++len;
+  }
 
   FILE* fo = cw_init("program.asm");
   cw_write_init(fo);
@@ -313,8 +318,8 @@ int main(int argc, char **argv) {
             item->d_name[sz-3] == '.' &&
             item->d_name[sz-2] == 'v' &&
             item->d_name[sz-1] == 'm') {
-            memcpy(fname, item->d_name, strlen(item->d_name)+1);
-            memcpy(&path[strlen(argv[1])], item->d_name, strlen(item->d_name)+1);
+            memcpy(fname, item->d_name, sz+1);
+            memcpy(&path[len], item->d_name, sz+1);
           break;
         }
       }

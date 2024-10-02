@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#include <dirent.h>
 
 #define MAX_SZ 512 // functionally the limit for multi-line comment
 
@@ -153,7 +154,7 @@ void ce_init(char *filename) {
     }
     out[i] = filename[i];
   }
-  strcat(out, "1.xml"); // TODO: remove 1 after testing
+  strcat(out, ".xml");
   fo = fopen(out, "w");
 }
 void ce_compile_terminal() {
@@ -691,11 +692,41 @@ void ce_compile_class() {
 }
 
 int main(int argc, char **argv) {
-  char *filename = argv[1];
+  char path[MAX_SZ];
+  char fname[MAX_SZ];
+  size_t len = strlen(argv[1]);
+  memcpy(path, argv[1], len+1);
+  if (path[len-1] != '/') {
+    path[len] = '/';
+    ++len;
+  }
 
-  t_init(filename);
-  ce_init(filename);
-  ce_compile_class();
+  bool once = true;
+  DIR *d = opendir(argv[1]);
+  while(1) {
+    if (d != NULL) {
+      struct dirent *item;
+      while((item = readdir(d))) {
+        size_t sz = strlen(item->d_name);
+        if (item->d_type == DT_REG &&
+            item->d_name[sz-5] == '.' &&
+            item->d_name[sz-4] == 'j' &&
+            item->d_name[sz-3] == 'a' &&
+            item->d_name[sz-2] == 'c' &&
+            item->d_name[sz-1] == 'k') {
+            memcpy(fname, item->d_name, sz+1);
+            memcpy(&path[len], item->d_name, sz+1);
+          break;
+        }
+      }
+      if (!item) { break; } // traversed entire dir
+    } else if (once) { once = false; }
+    else { break; }
+
+    t_init(path);
+    ce_init(fname);
+    ce_compile_class();
+  }
 
   return 0;
 }
