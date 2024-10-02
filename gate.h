@@ -324,7 +324,7 @@ CPU cpu(uint16_t a, uint16_t ins, bool r, REG16 *a_reg, REG16 *d_reg, REG16 *pc_
   bool ins15 = get_bit(ins, 15);
   uint16_t acur = reg(0, 0, a_reg);
   uint16_t dcur = reg(0, 0, d_reg);
-  
+
   uint16_t y = mux16(acur, a, get_bit(ins, 12));
   ALU aluout = alu(
     dcur, y,

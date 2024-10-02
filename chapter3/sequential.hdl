@@ -199,11 +199,11 @@ CHIP RAM16K {
 CHIP PC {
     IN in[16], reset, load, inc;
     OUT out[16];
-    
+
     PARTS:
     Register(in= din3, load= true, out= out, out = o);
     Inc16(in= o, out= next);
-    
+
     Mux16(a= o, b= next, sel= inc, out= din1);
     Mux16(a= din1, b= in, sel= load, out= din2);
     Mux16(a= din2, b= false, sel= reset, out= din3);

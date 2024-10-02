@@ -18,6 +18,11 @@ static FILE* f;
 static FILE* fo;
 static char nest = 0;
 
+// forward declarations
+void ce_compile_statements();
+void ce_compile_expression();
+void ce_compile_expression_list();
+
 void t_init(char *filename) {
   f = fopen(filename, "r");
 }
@@ -27,7 +32,7 @@ bool t_has_more_tokens(FILE* f) {
 typedef enum { NONE, COMMENT_LINE, COMMENT_MULTI,
                KEYWORD, SYMBOL, INTEGER_CONST, STRING, STRING_CONST, INDENTIFIER } Lexical;
 char *lex[] = { "NONE", "COMMENT_LINE", "COMMENT_MULTI",
-               "keyword", "symbol", "integerConstant", "STRING", "stringConstant", "identifier" }; // TODO: remove eventually
+               "keyword", "symbol", "integerConstant", "STRING", "stringConstant", "identifier" };
 typedef enum { _NONE, _CLASS, _METHOD, _FUNCTION, _CONSTRUCTOR, _INT, _BOOLEAN, _CHAR, _VOID,
                _VAR, _STATIC, _FIELD, _LET, _DO, _IF, _ELSE, _WHILE, _RETURN,
                _TRUE, _FALSE, _NULL, _THIS } Keyword;
@@ -35,7 +40,7 @@ char *key[] = { "none", "class", "method", "function", "constructor",
                 "int", "boolean","char", "void",
                 "var", "static", "field",
                 "let", "do", "if", "else", "while", "return",
-                "true", "false", "null", "this" }; // TODO: remove eventually
+                "true", "false", "null", "this" };
 Lexical prev_type;
 Keyword prev_key;
 void t_advance() {
@@ -266,13 +271,81 @@ void ce_compile_var_dec() {
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("</varDec>\n", 10, 1, fo);
 }
-void ce_compile_statements(); // NOTE: forward declaration
 void ce_compile_term() {
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
   fwrite("<term>\n", 7, 1,fo);
   ++nest;
 
-  ce_compile_terminal();
+  if (prev_type == INTEGER_CONST || prev_type == STRING_CONST ||
+      prev_type == KEYWORD) {
+    ce_compile_terminal();
+
+    t_advance();
+  } else if (prev_type == INDENTIFIER) {
+    ce_compile_terminal();
+
+    t_advance();
+    if (prev_type == SYMBOL) {
+      if (buf[0] == '[') {
+        ce_compile_terminal();
+
+        t_advance();
+        ce_compile_expression();
+
+        if (buf[0] != ']') err("syntax: expected ]");
+        else ce_compile_terminal();
+
+        t_advance();
+      } else if (buf[0] == '(') {
+        ce_compile_terminal();
+
+        t_advance();
+        ce_compile_expression_list();
+
+        if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
+        else ce_compile_terminal();
+
+        t_advance();
+      } else if (buf[0] == '.') {
+        ce_compile_terminal();
+
+        t_advance();
+        if (prev_type != INDENTIFIER) err("syntax: expected identifier");
+        else ce_compile_terminal();
+
+        t_advance();
+        if (!(prev_type == SYMBOL || buf[0] == '(')) err("syntax: expected (");
+        else ce_compile_terminal();
+
+        t_advance();
+        ce_compile_expression_list();
+
+        if (!(prev_type == SYMBOL || buf[0] == ')')) err("syntax: expected )");
+        else ce_compile_terminal();
+
+        t_advance();
+      } else {
+        // pass-through
+      }
+    }
+  } else if (prev_type == SYMBOL) {
+    if (buf[0] == '(') {
+      ce_compile_terminal();
+
+      t_advance();
+      ce_compile_expression();
+
+      if (buf[0] != ')') err("syntax: expected )");
+      else ce_compile_terminal();
+
+      t_advance();
+    } else if (buf[0] == '-' || buf[0] == '~') {
+      ce_compile_terminal();
+
+      t_advance();
+      ce_compile_term();
+    } else { err("syntax: unexpected symbol"); }
+  } else { err("syntax: unexpected term"); }
 
   --nest;
   for(char i = 0; i < nest; ++i) fwrite("  ", 1, 2,fo);
@@ -285,16 +358,13 @@ void ce_compile_expression() {
 
   ce_compile_term();
 
-  t_advance();
   while (prev_type == SYMBOL && (
       buf[0] == '+' || buf[0] == '-' || buf[0] == '*' || buf[0] == '/' ||
-      buf[0] == '&' || buf[0] == '|' || buf[0] == '<' || buf[0] == '>')) {
+      buf[0] == '&' || buf[0] == '|' || buf[0] == '<' || buf[0] == '>' || buf[0] == '=')) {
     ce_compile_terminal();
 
     t_advance();
     ce_compile_term();
-
-    t_advance();
   }
 
   --nest;
