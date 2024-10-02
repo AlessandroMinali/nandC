@@ -27,5 +27,5 @@ All other gates and components are fuction compositions of the above!
 ### Software
 [assembler.c](https://github.com/AlessandroMinali/nandC/blob/master/chapter6/assembler.c): Hack ASM -> Hack binary  
 [vm.c](https://github.com/AlessandroMinali/nandC/blob/master/vm.c): VM lang -> Hack ASM  
-compiler.c(WIP): Jack lang -> VM lang  
-os.c(WIP): provides utilities for Jack lang
+[compiler.c(WIP)]((https://github.com/AlessandroMinali/nandC/blob/master/compiler.c)): Jack lang -> VM lang  
+[os.c(WIP)](): provides utilities for Jack lang
